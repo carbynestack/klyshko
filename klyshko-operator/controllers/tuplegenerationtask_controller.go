@@ -11,7 +11,10 @@ import (
 	"context"
 	"fmt"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,6 +57,7 @@ func isLocalTaskKey(ctx context.Context, client *client.Client, key RosterEntryK
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;patch;delete
 
 func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("Task.Name", req.Name)
@@ -111,7 +115,19 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		logger.Info("roster entry exists already")
 	}
 
-	// TODO Create POD using KII
+	// Lookup job
+	job := &klyshkov1alpha1.TupleGenerationJob{}
+	err = r.Get(ctx, taskKey.NamespacedName, job)
+	if err != nil {
+		logger.Error(err, "failed to lookup job")
+		return ctrl.Result{}, err
+	}
+
+	// Create Pod
+	err = r.createCRGPod(ctx, *taskKey, job, task)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -119,5 +135,138 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 func (r *TupleGenerationTaskReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&klyshkov1alpha1.TupleGenerationTask{}).
+		Owns(&v1.Pod{}).
 		Complete(r)
+}
+
+func (r *TupleGenerationTaskReconciler) createCRGPod(ctx context.Context, key RosterEntryKey, job *klyshkov1alpha1.TupleGenerationJob, task *klyshkov1alpha1.TupleGenerationTask) error {
+	logger := log.FromContext(ctx).WithValues("Task.Key", key)
+	found := &v1.Pod{}
+	err := r.Get(ctx, key.NamespacedName, found)
+	if err == nil {
+		logger.Info("pod already exists")
+		return nil
+	}
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      task.Name,
+			Namespace: task.Namespace,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name:  "generator",
+					Image: "carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT", // TODO Read from config
+					Command: []string{
+						"/bin/bash",
+						"-c",
+					},
+					Args: []string{
+						"./kii-run.sh",
+					},
+					Env: []v1.EnvVar{
+						{
+							Name:  "KII_JOB_ID",
+							Value: job.Spec.ID,
+						},
+						{
+							Name:  "KII_PLAYER_COUNT",
+							Value: "2", // TODO Read from config
+						},
+						{
+							Name:  "KII_TUPLE_TYPE",
+							Value: job.Spec.Type,
+						},
+						{
+							Name:  "KII_TUPLES_PER_JOB",
+							Value: fmt.Sprint(job.Spec.Count),
+						},
+						{
+							Name:  "KII_PLAYER_NUMBER",
+							Value: fmt.Sprint(key.PlayerID),
+						},
+						{
+							Name:  "KII_SHARED_FOLDER",
+							Value: "/kii", // TODO Read from config
+						},
+						{
+							Name:  "KII_TUPLE_FILE",
+							Value: "/kii/tuples",
+						},
+					},
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      "kii",
+							MountPath: "/kii",
+						},
+						{
+							Name:      "params",
+							ReadOnly:  true,
+							MountPath: "/etc/kii/params",
+						},
+						{
+							Name:      "secret-params",
+							ReadOnly:  true,
+							MountPath: "/etc/kii/secret-params",
+						},
+						{
+							Name:      "extra-params",
+							ReadOnly:  true,
+							MountPath: "/etc/kii/extra-params",
+						},
+					},
+				},
+			},
+			RestartPolicy:         v1.RestartPolicyNever,
+			ShareProcessNamespace: pointer.Bool(true),
+			Volumes: []v1.Volume{
+				{
+					Name: "kii",
+					VolumeSource: v1.VolumeSource{
+						EmptyDir: &v1.EmptyDirVolumeSource{},
+					},
+				},
+				{
+					Name: "params",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "io.carbynestack.engine.params",
+							},
+						},
+					},
+				},
+				{
+					Name: "secret-params",
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{
+							SecretName: "io.carbynestack.engine.params.secret",
+						},
+					},
+				},
+				{
+					Name: "extra-params",
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "io.carbynestack.engine.params.extra",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	logger.Info("creating pod", "Pod", pod)
+	err = ctrl.SetControllerReference(task, pod, r.Scheme)
+	if err != nil {
+		logger.Error(err, "setting owner reference failed")
+		return err
+	}
+	err = r.Create(ctx, pod)
+	if err != nil {
+		logger.Error(err, "pod creation failed")
+		return err
+	}
+	return nil
 }

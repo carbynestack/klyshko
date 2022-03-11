@@ -12,6 +12,7 @@ import (
 )
 
 type TupleGenerationJobSpec struct {
+	ID string `json:"id"`
 
 	// +kubebuilder:validation:Enum=multiplicationtriple_gfp
 	Type string `json:"type"`

@@ -52,12 +52,15 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              id:
+                type: string
               type:
                 enum:
                 - multiplicationtriple_gfp
                 type: string
             required:
             - count
+            - id
             - type
             type: object
           status:

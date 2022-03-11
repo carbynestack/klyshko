@@ -41,6 +41,16 @@ do
   echo -e "${GREEN}Deploying in $c${NC}"
   kubectl config use-context "kind-$c"
   kubectl apply -f "config/samples/$c-vcp.yaml"
+  MAC_KEY_SHARE_P=$([ "$c" == "apollo" ] && echo "-88222337191559387830816715872691188861" | base64 || echo "1113507028231509545156335486838233835" | base64)
+  MAC_KEY_SHARE_2=$([ "$c" == "apollo" ] && echo "f0cf6099e629fd0bda2de3f9515ab72b" | base64 || echo "c347ce3d9e165e4e85221f9da7591d98" | base64)
+  sed -e "s/MAC_KEY_SHARE_P/${MAC_KEY_SHARE_P}/" -e "s/MAC_KEY_SHARE_2/${MAC_KEY_SHARE_2}/" config/samples/engine-params-secret.yaml.template > "/tmp/$c-engine-params-secret.yaml"
+  EXTRA_MAC_KEY_SHARE_P=$([ "$c" == "starbuck" ] && echo "-88222337191559387830816715872691188861" || echo "1113507028231509545156335486838233835")
+  EXTRA_MAC_KEY_SHARE_2=$([ "$c" == "starbuck" ] && echo "f0cf6099e629fd0bda2de3f9515ab72b" || echo "c347ce3d9e165e4e85221f9da7591d98")
+  sed -e "s/MAC_KEY_SHARE_P/${EXTRA_MAC_KEY_SHARE_P}/" -e "s/MAC_KEY_SHARE_2/${EXTRA_MAC_KEY_SHARE_2}/" config/samples/engine-params-extra.yaml.template > "/tmp/$c-engine-params-extra.yaml"
+  kubectl apply -f /tmp/$c-engine-params-secret.yaml
+  kubectl apply -f /tmp/$c-engine-params-extra.yaml
+  kubectl apply -f config/samples/engine-params.yaml
+
   make deploy IMG="carbynestack/klyshko-operator:v0.0.1"
   if [ "$c" == "apollo" ]; then
     kubectl apply -f config/samples/klyshko_v1alpha1_tuplegenerationjob.yaml
