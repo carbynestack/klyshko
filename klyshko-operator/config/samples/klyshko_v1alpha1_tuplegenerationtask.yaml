@@ -1,0 +1,7 @@
+apiVersion: klyshko.carbnyestack.io/v1alpha1
+kind: TupleGenerationTask
+metadata:
+  name: tuplegenerationtask-sample
+spec:
+  # Add fields here
+  foo: bar

@@ -1,0 +1,7 @@
+apiVersion: klyshko.carbnyestack.io/v1alpha1
+kind: TupleGenerationJob
+metadata:
+  name: tuplegenerationjob-sample
+spec:
+  type: multiplicationtriple_gfp
+  count: 100000
