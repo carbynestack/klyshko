@@ -53,6 +53,8 @@ do
 
   make deploy IMG="carbynestack/klyshko-operator:v0.0.1"
   if [ "$c" == "apollo" ]; then
+    JOB_ID=$(uuidgen)
+    sed -e "s/JOB_ID/${JOB_ID}/" config/samples/klyshko_v1alpha1_tuplegenerationjob.yaml.template > config/samples/klyshko_v1alpha1_tuplegenerationjob.yaml
     kubectl apply -f config/samples/klyshko_v1alpha1_tuplegenerationjob.yaml
   fi
 done

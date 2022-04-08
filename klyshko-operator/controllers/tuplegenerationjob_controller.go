@@ -116,10 +116,6 @@ func (r *TupleGenerationJobReconciler) handleJobUpdate(ctx context.Context, key 
 }
 
 func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Context, key RosterEntryKey, ev *clientv3.Event) {
-	taskName := types.NamespacedName{
-		Namespace: key.Namespace,
-		Name:      key.Name + "-" + strconv.Itoa(int(key.PlayerID)),
-	}
 	logger := log.FromContext(ctx).WithValues("Task.Key", key)
 
 	// Lookup job
@@ -130,19 +126,44 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 		return
 	}
 
+	taskName := types.NamespacedName{
+		Namespace: key.Namespace,
+		Name:      r.taskName(job, key.PlayerID),
+	}
+
 	switch ev.Type {
 	case mvccpb.PUT:
-		// Create local proxy for remote task
-		// TODO Check if task already exists; then update or create
-		task, err := r.taskForJob(job, key.PlayerID)
-		if err != nil {
-			logger.Error(err, "failed to define proxy task")
-			return
-		}
-		err = r.Create(ctx, task)
-		if err != nil {
-			logger.Error(err, "failed to create proxy task")
-			return
+		found := &klyshkov1alpha1.TupleGenerationTask{}
+		if err := r.Client.Get(ctx, taskName, found); err == nil {
+			// Update local proxy task status
+			status, err := klyshkov1alpha1.ParseFromJSON(ev.Kv.Value)
+			if err != nil {
+				logger.Error(err, "extracting state from roster entry failed")
+				return
+			}
+			found.Status = *status
+			err = r.Client.Status().Update(ctx, found)
+			if err != nil {
+				logger.Error(err, "failed to update proxy task")
+				return
+			}
+		} else {
+			if !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to fetch task") // TODO Failure requires reconciliation (also above/below), how to do that?
+				return
+			}
+
+			// Create local proxy for remote task
+			task, err := r.taskForJob(job, key.PlayerID)
+			if err != nil {
+				logger.Error(err, "failed to define proxy task")
+				return
+			}
+			err = r.Create(ctx, task)
+			if err != nil {
+				logger.Error(err, "failed to create proxy task")
+				return
+			}
 		}
 	case mvccpb.DELETE:
 		// Delete task for job iff exists

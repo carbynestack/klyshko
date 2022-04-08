@@ -8,18 +8,49 @@ SPDX-License-Identifier: Apache-2.0
 package v1alpha1
 
 import (
+	"encoding/json"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+type TupleGenerationTaskState string
+
+const (
+	Launching    TupleGenerationTaskState = "Launching"
+	Generating                            = "Generating"
+	Provisioning                          = "Provisioning"
+	Completed                             = "Completed"
+	Failed                                = "Failed"
+)
+
+func (s TupleGenerationTaskState) IsValid() bool {
+	switch s {
+	case Launching, Generating, Provisioning, Completed, Failed:
+		return true
+	default:
+		return false
+	}
+}
 
 type TupleGenerationTaskSpec struct {
 }
 
 type TupleGenerationTaskStatus struct {
+	State TupleGenerationTaskState `json:"state"`
+}
+
+func ParseFromJSON(data []byte) (*TupleGenerationTaskStatus, error) {
+	status := &TupleGenerationTaskStatus{}
+	if err := json.Unmarshal(data, status); err != nil {
+		return status, err
+	}
+	return status, nil
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:resource:shortName=tgt;tgtask
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.state`
+//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 type TupleGenerationTask struct {
 	metav1.TypeMeta   `json:",inline"`

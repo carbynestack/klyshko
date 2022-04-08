@@ -14,6 +14,10 @@ cd klyshko-mp-spdz
 ./deploy.sh
 )
 (
+cd klyshko-provisioner
+./deploy.sh
+)
+(
 cd klyshko-operator
 ./deploy.sh
 )
