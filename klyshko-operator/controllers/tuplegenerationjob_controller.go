@@ -295,6 +295,63 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		logger.Info("local task exists already")
 	}
 
+	// Update job status based on owned task statuses
+	tasks := &klyshkov1alpha1.TupleGenerationTaskList{}
+	err = r.List(ctx, tasks) // TODO Use ListOption filter based on owner reference, if possible
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Collecting tasks owned by job; TODO Move this to task class
+	isOwnedBy := func(task klyshkov1alpha1.TupleGenerationTask) bool {
+		for _, or := range task.OwnerReferences {
+			if or.Name == job.Name {
+				return true
+			}
+		}
+		return false
+	}
+	var ownedBy []klyshkov1alpha1.TupleGenerationTask
+	for _, t := range tasks.Items {
+		if isOwnedBy(t) {
+			ownedBy = append(ownedBy, t)
+		}
+	}
+	logger.Info("Collected statues of owned tasks", "States", ownedBy)
+
+	// Helper functions; TODO Move this to state class?
+	allTerminated := func(tasks []klyshkov1alpha1.TupleGenerationTask) bool {
+		for _, t := range tasks {
+			if t.Status.State != klyshkov1alpha1.TaskCompleted && t.Status.State != klyshkov1alpha1.TaskFailed {
+				return false
+			}
+		}
+		return true
+	}
+	anyFailed := func(tasks []klyshkov1alpha1.TupleGenerationTask) bool {
+		for _, t := range tasks {
+			if t.Status.State == klyshkov1alpha1.TaskFailed {
+				return true
+			}
+		}
+		return false
+	}
+	var state klyshkov1alpha1.TupleGenerationJobState
+	if len(ownedBy) < 2 {
+		state = klyshkov1alpha1.JobPending
+	} else if !allTerminated(ownedBy) {
+		state = klyshkov1alpha1.JobRunning
+	} else if anyFailed(ownedBy) {
+		state = klyshkov1alpha1.JobFailed
+	} else {
+		state = klyshkov1alpha1.JobCompleted
+	}
+	job.Status.State = state
+	err = r.Status().Update(ctx, job)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	logger.Info("desired state reached")
 	return ctrl.Result{}, nil
 }

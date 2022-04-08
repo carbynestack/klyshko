@@ -3,6 +3,6 @@ kind: TupleGenerationJob
 metadata:
   name: tuplegenerationjob-sample
 spec:
-  id: fa992993-080a-4328-8416-3ec089adfdfe
+  id: 2351d9aa-352a-4730-babc-538095744538
   type: multiplicationtriple_gfp
   count: 100000

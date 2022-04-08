@@ -11,6 +11,31 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type TupleGenerationJobState string
+
+const (
+	// JobPending means that not all tasks of the job have been spawned yet.
+	JobPending TupleGenerationJobState = "Pending"
+
+	// JobRunning means all tasks for the job have been spawned but have not terminated yet.
+	JobRunning = "Running"
+
+	// JobCompleted means all tasks have completed successfully.
+	JobCompleted = "Completed"
+
+	// JobFailed means that all tasks for the job have terminated but at least on failed.
+	JobFailed = "Failed"
+)
+
+func (s TupleGenerationJobState) IsValid() bool {
+	switch s {
+	case JobPending, JobRunning, JobCompleted, JobFailed:
+		return true
+	default:
+		return false
+	}
+}
+
 type TupleGenerationJobSpec struct {
 	ID string `json:"id"`
 
@@ -23,6 +48,7 @@ type TupleGenerationJobSpec struct {
 }
 
 type TupleGenerationJobStatus struct {
+	State TupleGenerationJobState `json:"state"`
 }
 
 //+kubebuilder:object:root=true
@@ -30,6 +56,7 @@ type TupleGenerationJobStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Tuple Type",type=string,JSONPath=`.spec.type`
 //+kubebuilder:printcolumn:name="Tuple Count",type=string,JSONPath=`.spec.count`
+//+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.state`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 type TupleGenerationJob struct {
