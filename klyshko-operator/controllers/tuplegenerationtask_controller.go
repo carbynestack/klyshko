@@ -144,7 +144,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 	if resp.Count == 0 {
-		status, err := json.Marshal(&klyshkov1alpha1.TupleGenerationTaskStatus{State: klyshkov1alpha1.Launching})
+		status, err := json.Marshal(&klyshkov1alpha1.TupleGenerationTaskStatus{State: klyshkov1alpha1.TaskLaunching})
 		_, err = r.EtcdClient.Put(ctx, taskKey.ToEtcdKey(), string(status))
 		if err != nil {
 			logger.Error(err, "failed to create roster entry")
@@ -179,7 +179,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	if status.State == klyshkov1alpha1.Launching {
+	if status.State == klyshkov1alpha1.TaskLaunching {
 		// Create persistent volume claim used to store generated tuples, if not existing
 		err = r.createPVC(ctx, *taskKey)
 		if err != nil {
@@ -193,10 +193,10 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		return ctrl.Result{
 			Requeue: true,
-		}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.Generating)
+		}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskGenerating)
 	}
 
-	if status.State == klyshkov1alpha1.Generating {
+	if status.State == klyshkov1alpha1.TaskGenerating {
 		genPod, err := r.getGeneratorPod(ctx, task)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -210,28 +210,28 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 			return ctrl.Result{
 				Requeue: true,
-			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.Provisioning)
+			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskProvisioning)
 		case v1.PodFailed:
 			return ctrl.Result{
 				Requeue: true,
-			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.Failed)
+			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskFailed)
 		}
 	}
 
-	if status.State == klyshkov1alpha1.Provisioning {
+	if status.State == klyshkov1alpha1.TaskProvisioning {
 		provPod, err := r.getProvisionerPod(ctx, *taskKey)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 		switch provPod.Status.Phase {
 		case v1.PodSucceeded:
-			// Provisioning successful, activate tuples TODO Move to Job Controller who knows when all parties successfully provisioned
+			// TaskProvisioning successful, activate tuples TODO Move to Job Controller who knows when all parties successfully provisioned
 			tupleChunkId, err := uuid.Parse(job.Spec.ID)
 			if err != nil {
 				logger.Error(err, "invalid job id encountered")
 				return ctrl.Result{
 					Requeue: true,
-				}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.Failed)
+				}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskFailed)
 			}
 			err = activateTupleChunk(ctx, tupleChunkId)
 			if err != nil {
@@ -239,11 +239,11 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			}
 			return ctrl.Result{
 				Requeue: true,
-			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.Completed)
+			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskCompleted)
 		case v1.PodFailed:
 			return ctrl.Result{
 				Requeue: true,
-			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.Failed)
+			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskFailed)
 		}
 	}
 

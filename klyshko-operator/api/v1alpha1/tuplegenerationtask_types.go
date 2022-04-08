@@ -15,16 +15,16 @@ import (
 type TupleGenerationTaskState string
 
 const (
-	Launching    TupleGenerationTaskState = "Launching"
-	Generating                            = "Generating"
-	Provisioning                          = "Provisioning"
-	Completed                             = "Completed"
-	Failed                                = "Failed"
+	TaskLaunching    TupleGenerationTaskState = "Launching"
+	TaskGenerating                            = "Generating"
+	TaskProvisioning                          = "Provisioning"
+	TaskCompleted                             = "Completed"
+	TaskFailed                                = "Failed"
 )
 
 func (s TupleGenerationTaskState) IsValid() bool {
 	switch s {
-	case Launching, Generating, Provisioning, Completed, Failed:
+	case TaskLaunching, TaskGenerating, TaskProvisioning, TaskCompleted, TaskFailed:
 		return true
 	default:
 		return false
