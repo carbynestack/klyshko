@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	klyshkov1alpha1 "github.com/carbynestack/klyshko/api/v1alpha1"
+	"github.com/google/uuid"
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -345,6 +346,18 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		state = klyshkov1alpha1.JobFailed
 	} else {
 		state = klyshkov1alpha1.JobCompleted
+
+		// Activate tuples; TODO How to deal with failures here?
+		tupleChunkId, err := uuid.Parse(job.Spec.ID)
+		if err != nil {
+			logger.Error(err, "invalid job id encountered")
+			return ctrl.Result{}, nil
+		}
+		err = activateTupleChunk(ctx, tupleChunkId)
+		if err != nil {
+			logger.Error(err, "tuple activation failed")
+			return ctrl.Result{}, nil
+		}
 	}
 	job.Status.State = state
 	err = r.Status().Update(ctx, job)

@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -225,18 +224,6 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		switch provPod.Status.Phase {
 		case v1.PodSucceeded:
-			// TaskProvisioning successful, activate tuples TODO Move to Job Controller who knows when all parties successfully provisioned
-			tupleChunkId, err := uuid.Parse(job.Spec.ID)
-			if err != nil {
-				logger.Error(err, "invalid job id encountered")
-				return ctrl.Result{
-					Requeue: true,
-				}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskFailed)
-			}
-			err = activateTupleChunk(ctx, tupleChunkId)
-			if err != nil {
-				return ctrl.Result{}, err // TODO Fail here?
-			}
 			return ctrl.Result{
 				Requeue: true,
 			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskCompleted)
