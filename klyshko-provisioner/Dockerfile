@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-FROM adoptopenjdk/openjdk8:jdk8u292-b10-debian
+FROM ghcr.io/carbynestack/openjdk:jre8-20210827
 
 ARG CLI_VERSION=0.1-SNAPSHOT-1576571202-7-cf3db5b
 
