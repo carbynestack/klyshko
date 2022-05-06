@@ -32,9 +32,10 @@ ARG MP_SPDZ_REPO="https://github.com/carbynestack/MP-SPDZ"
 ARG MP_SPDZ_VERSION="add-prng-seed-option"
 
 # Checkout MP-SPDZ repository at required version
-RUN git clone --recurse-submodules ${MP_SPDZ_REPO} mp-spdz-${MP_SPDZ_VERSION}
+RUN git clone ${MP_SPDZ_REPO} mp-spdz-${MP_SPDZ_VERSION}
 WORKDIR mp-spdz-${MP_SPDZ_VERSION}
-RUN git checkout ${MP_SPDZ_VERSION}
+RUN git checkout ${MP_SPDZ_VERSION} && \
+    git submodule set-url -- mpir https://github.com/wbhart/mpir
 
 # Build fake offline phase executable
 RUN echo "MY_CFLAGS += -DINSECURE" >> CONFIG.mine
