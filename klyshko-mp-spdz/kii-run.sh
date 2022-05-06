@@ -64,7 +64,8 @@ do
 done
 
 # Execute offline phase
-cmd="./Fake-Offline.x -d 0 --prime ${prime} --prngseed ${KII_JOB_ID} ${argsByType[${KII_TUPLE_TYPE}]} ${KII_PLAYER_COUNT}"
+seed=$(echo "${KII_JOB_ID}" | md5sum)
+cmd="./Fake-Offline.x -d 0 --prime ${prime} --prngseed ${seed:0:16} ${argsByType[${KII_TUPLE_TYPE}]} ${KII_PLAYER_COUNT}"
 eval "$cmd"
 
 # Copy generated tuples to path expected by KII
