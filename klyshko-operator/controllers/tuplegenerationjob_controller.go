@@ -347,7 +347,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	} else {
 		state = klyshkov1alpha1.JobCompleted
 
-		// Activate tuples; TODO How to deal with failures here?
+		// Activate tuples; TODO How to deal with failures here? Introduce JobActivating state, how to sync between VCPs? Is activation still used in new Castor implementation?
 		tupleChunkId, err := uuid.Parse(job.Spec.ID)
 		if err != nil {
 			logger.Error(err, "invalid job id encountered")

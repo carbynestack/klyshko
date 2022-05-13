@@ -13,28 +13,28 @@ set -e
 n=${KII_TUPLES_PER_JOB}
 pn=${KII_PLAYER_NUMBER}
 declare -A argsByType=(
-  ["bit_gfp"]="--nbits 0,${n}"
-  ["bit_gf2n"]="--nbits ${n},0"
-  ["inputmask_gfp"]="--ntriples 0,${n}"
-  ["inputmask_gf2n"]="--ntriples ${n},0"
-  ["inversetuple_gfp"]="--ninverses ${n}"
-  ["inversetuple_gf2n"]="--ninverses ${n}"
-  ["squaretuple_gfp"]="--nsquares 0,${n}"
-  ["squaretuple_gf2n"]="--nsquares ${n},0"
-  ["multiplicationtriple_gfp"]="--ntriples 0,${n}"
-  ["multiplicationtriple_gf2n"]="--ntriples ${n},0"
+  ["BIT_GFP"]="--nbits 0,${n}"
+  ["BIT_GF2N"]="--nbits ${n},0"
+  ["INPUT_MASK_GFP"]="--ntriples 0,${n}"
+  ["INPUT_MASK_GF2N"]="--ntriples ${n},0"
+  ["INVERSE_TUPLE_GFP"]="--ninverses ${n}"
+  ["INVERSE_TUPLE_GF2N"]="--ninverses ${n}"
+  ["SQUARE_TUPLE_GFP"]="--nsquares 0,${n}"
+  ["SQUARE_TUPLE_GF2N"]="--nsquares ${n},0"
+  ["MULTIPLICATION_TRIPLE_GFP"]="--ntriples 0,${n}"
+  ["MULTIPLICATION_TRIPLE_GF2N"]="--ntriples ${n},0"
 )
 declare -A folderByType=(
-  ["bit_gfp"]="2-p-128/Bits-p-P${pn}"
-  ["bit_gf2n"]="2-2-128/Bits-2-P${pn}"
-  ["inputmask_gfp"]="2-p-128/Triples-p-P${pn}"
-  ["inputmask_gf2n"]="2-2-128/Triples-2-P${pn}"
-  ["inversetuple_gfp"]="2-p-128/Inverses-p-P${pn}"
-  ["inversetuple_gf2n"]="2-2-128/Inverses-2-P${pn}"
-  ["squaretuple_gfp"]="2-p-128/Squares-p-P${pn}"
-  ["squaretuple_gf2n"]="2-2-128/Squares-2-P${pn}"
-  ["multiplicationtriple_gfp"]="2-p-128/Triples-p-P${pn}"
-  ["multiplicationtriple_gf2n"]="2-2-128/Triples-2-P${pn}"
+  ["BIT_GFP"]="2-p-128/Bits-p-P${pn}"
+  ["BIT_GF2N"]="2-2-128/Bits-2-P${pn}"
+  ["INPUT_MASK_GFP"]="2-p-128/Triples-p-P${pn}"
+  ["INPUT_MASK_GF2N"]="2-2-128/Triples-2-P${pn}"
+  ["INVERSE_TUPLE_GFP"]="2-p-128/Inverses-p-P${pn}"
+  ["INVERSE_TUPLE_GF2N"]="2-2-128/Inverses-2-P${pn}"
+  ["SQUARE_TUPLE_GFP"]="2-p-128/Squares-p-P${pn}"
+  ["SQUARE_TUPLE_GF2N"]="2-2-128/Squares-2-P${pn}"
+  ["MULTIPLICATION_TRIPLE_GFP"]="2-p-128/Triples-p-P${pn}"
+  ["MULTIPLICATION_TRIPLE_GF2N"]="2-2-128/Triples-2-P${pn}"
 )
 
 # Provide required parameters in MP-SPDZ "Player-Data" folder

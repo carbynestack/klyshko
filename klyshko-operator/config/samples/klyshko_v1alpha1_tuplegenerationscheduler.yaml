@@ -1,0 +1,7 @@
+apiVersion: klyshko.carbnyestack.io/v1alpha1
+kind: TupleGenerationScheduler
+metadata:
+  name: tuplegenerationscheduler-sample
+spec:
+  concurrency: 3
+  threshold: 400000

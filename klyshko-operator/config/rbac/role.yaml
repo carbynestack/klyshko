@@ -67,6 +67,32 @@ rules:
 - apiGroups:
   - klyshko.carbnyestack.io
   resources:
+  - tuplegenerationschedulers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationschedulers/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationschedulers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
   - tuplegenerationtasks
   verbs:
   - create

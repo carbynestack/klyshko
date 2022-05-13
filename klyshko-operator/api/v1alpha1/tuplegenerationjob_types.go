@@ -36,15 +36,19 @@ func (s TupleGenerationJobState) IsValid() bool {
 	}
 }
 
+func (s TupleGenerationJobState) IsDone() bool {
+	return s == JobCompleted || s == JobFailed
+}
+
 type TupleGenerationJobSpec struct {
 	ID string `json:"id"`
 
-	// +kubebuilder:validation:Enum=multiplicationtriple_gfp
+	// +kubebuilder:validation:Enum=BIT_GFP;BIT_GF2N;INPUT_MASK_GFP;INPUT_MASK_GF2N;INVERSE_TUPLE_GFP;INVERSE_TUPLE_GF2N;SQUARE_TUPLE_GFP;SQUARE_TUPLE_GF2N;MULTIPLICATION_TRIPLE_GFP;MULTIPLICATION_TRIPLE_GF2N
 	Type string `json:"type"`
 
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:ExclusiveMinimum=true
-	Count int32 `json:"count"`
+	Count int `json:"count"`
 }
 
 type TupleGenerationJobStatus struct {

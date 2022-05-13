@@ -9,19 +9,6 @@
 # Fail, if any command fails
 set -e
 
-declare -A typeByType=(
-  ["bit_gfp"]="BIT_GFP"
-  ["bit_gf2n"]="BIT_GF2N"
-  ["inputmask_gfp"]="INPUT_MASK_GFP"
-  ["inputmask_gf2n"]="INPUT_MASK_GF2N"
-  ["inversetuple_gfp"]="INVERSE_TUPLE_GFP"
-  ["inversetuple_gf2n"]="INVERSE_TUPLE_GF2N"
-  ["squaretuple_gfp"]="SQUARE_TUPLE_GFP"
-  ["squaretuple_gf2n"]="SQUARE_TUPLE_GF2N"
-  ["multiplicationtriple_gfp"]="MULTIPLICATION_TRIPLE_GFP"
-  ["multiplicationtriple_gf2n"]="MULTIPLICATION_TRIPLE_GF2N"
-)
-
 mkdir -p ~/.cs
 cat <<EOF > cs-config
 {
@@ -46,4 +33,4 @@ cat <<EOF > cs-config
 }
 EOF
 
-java -jar cs.jar --config-file cs-config castor upload-tuple -f "${KII_TUPLE_FILE}" -t "${typeByType[${KII_TUPLE_TYPE}]}" -i "${KII_JOB_ID}" 1
+java -jar cs.jar --config-file cs-config castor upload-tuple -f "${KII_TUPLE_FILE}" -t "${KII_TUPLE_TYPE}" -i "${KII_JOB_ID}" 1
