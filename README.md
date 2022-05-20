@@ -1,6 +1,10 @@
 # Carbyne Stack Klyshko Correlated Randomness Generation
 
-Klyshko is a kubernetes-native open source correlated randomness generator
+[![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
+Klyshko is a kubernetes-native open source correlated randomness generator (CRG)
 service for Secure Multiparty Computation in the offline/online model and part
 of [Carbyne Stack](https://github.com/carbynestack).
 
@@ -18,7 +22,62 @@ The analogy to the *Klyshko* service is that secret shared tuples are correlated
 and thus kind of "entangled" and that the microservice is the implementation of
 the process that creates the tuples.
 
-## Klyshko Integration Interface
+## Architecture
+
+Klyshko consists of three main components:
+
+- *Correlated Randomness Generators (CRGs)* are the workhorses within Klyshko.
+  They are actually generating correlated randomness. CRGs are packaged as
+  Docker images and have to implement the
+  [Klyshko Integration Interface (KII)](#klyshko-integration-interface-kii).
+- The *Klyshko Operator* coordinates the invocation of CRGs across the VCPs in a
+  VC. It consists of a number of components implemented as a Kubernetes API
+  called `klyshko.carbnyestack.io/v1alpha1` providing the following
+  [Custom Resources](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/):
+  - A *Scheduler* (kind: `TupleGenerationScheduler`) monitors the availability
+    of correlated randomness within the VC using the
+    [Castor](https://github.com/carbynestack/castor) *Telemetry API* and
+    schedules CRG invocations accordingly.
+  - A *Job* (kind: `TupleGenerationJob`) abstracts a CRG invocation across the
+    VCPs of a VC. The job holds the specification of the correlated randomness
+    to be generated including tuple type and the number of tuples to be
+    generated.
+  - A *Task* (kind: `TupleGenerationTask`) represents a local or remote
+    execution of a CRG. A task exposes the state of the invocation on a single
+    VCP. On the job level task states are aggregated into a job state. Remote
+    tasks are proxied locally to make their state available to the job
+    controller. The task controller makes use of the
+    [Klyshko Integration Interface (KII)](#klyshko-integration-interface-kii) to
+    interact with different CRG implementations in an implementation-independent
+    way.
+- The *Klyshko Provisioner* is used to upload the generated correlated
+  randomness to [Castor](https://github.com/carbynestack/castor).
+
+Klyshko uses an [etcd](https://etcd.io/) cluster to manage distributed state and
+to orchestrate actions across VCPs.
+
+## Usage
+
+To deploy Klyshko to your VC you have to install the operator on all VCPs. You
+then create a scheduler on **one** of the clusters by applying the respective
+manifest, e.g.,
+
+```yaml
+apiVersion: klyshko.carbnyestack.io/v1alpha1
+kind: TupleGenerationScheduler
+metadata:
+  name: sample-crg-scheduler
+spec:
+  concurrency: 3
+  threshold: 500000
+```
+
+Klyshko will start producing correlated randomness by creating respective jobs
+whenever the number of tuples for a specific type drops below the given
+`threshold`. `concurrency` specifies the maximum number of jobs are allowed to
+run concurrently. This is the upper limit across all tuple types together.
+
+## Klyshko Integration Interface (KII)
 
 > **IMPORTANT**: This is an initial incomplete version of the KII that is
 > subject to change without notice. For the time being it is very much
@@ -26,9 +85,11 @@ the process that creates the tuples.
 > [MP-SPDZ](https://github.com/data61/MP-SPDZ) project.
 
 *Klyshko* has been designed to allow for easy integration of different
-correlated randomness generators (CRGs). Integration is done by means of
+*Correlated Randomness Generators* (CRGs). Integration is done by means of
 providing a docker image containing the CRG that implements the *Klyshko
-Integration Interface* (KII).
+Integration Interface* (KII). The parameters required by the CRG are provided
+using a mix of environment variables and files made available to the container
+during execution. See below for a detailed description.
 
 > **TIP**: For an example of how to integrate the
 > [MP-SPDZ](https://github.com/data61/MP-SPDZ) CRG producing *fake* tuples see
@@ -36,9 +97,10 @@ Integration Interface* (KII).
 
 ### Entrypoint
 
-The CRG docker image must contain a `kii-run.sh` script in the working directory
-that performs the tuple generation process. The script must terminate with a
-non-zero exit code in case the tuples can not be generated.
+The CRG docker image must contain a script called `kii-run.sh` in the working
+directory that spawns the tuple generation process. The script must terminate
+with a non-zero exit code if and only if the tuples can not be generated for
+some reason.
 
 ### Environment Variables
 
@@ -49,16 +111,17 @@ the tuple generation and provisioning process.
 
 - `KII_JOB_ID`: The Type 4 UUID used as a job identifier. This is the same among
   all VCPs in the VC.
-- `KII_TUPLES_PER_JOB`: The number of tuples to be generated. The CRG should try
-  to match the requested number but is not required to do so.
+- `KII_TUPLES_PER_JOB`: The number of tuples to be generated. The CRG should
+  make its best effort to match the requested number but is not required to do
+  so in case optimizations like batching mandate it.
 - `KII_PLAYER_NUMBER`: The 0-based number of the local VCP.
 - `KII_PLAYER_COUNT`: The overall number of VCPs in the VC.
 - `KII_TUPLE_TYPE`: The tuple type to generate. Must be one of
-  - `bit_gfp`, `bit_gf2n`
-  - `inputmask_gfp`, `inputmask_gf2n`
-  - `inversetuple_gfp`, `inversetuple_gf2n`
-  - `squaretuple_gfp`, `squaretuple_gf2n`
-  - `multiplicationtriple_gfp`, `multiplicationtriple_gf2n`
+  - `BIT_GFP`, `BIT_GF2N`
+  - `INPUT_MASK_GFP`, `INPUT_MASK_GF2N`
+  - `INVERSE_TUPLE_GFP`, `INVERSE_TUPLE_GF2N`
+  - `SQUARE_TUPLE_GFP`, `SQUARE_TUPLE_GF2N`
+  - `MULTIPLICATION_TRIPLE_GFP`, `MULTIPLICATION_TRIPLE_GF2N`
 
 #### Output
 
@@ -73,6 +136,13 @@ The prime to be used for generating prime field tuples is provided in the file
 
 The MAC key shares for prime and binary fields are made available as files
 `mac_key_share_p` and `mac_key_share_2` in folder `/etc/kii/secret-params`.
+
+## Development
+
+The `deploy.sh` scripts in the `hack` folders (top-level and within modules) can
+be used to (re-)deploy Klyshko to a 2-party Carbyne Stack VC setup as described
+in the [tutorials](https://carbynestack.io/getting-started) on the Carbyne Stack
+website.
 
 ## License
 
