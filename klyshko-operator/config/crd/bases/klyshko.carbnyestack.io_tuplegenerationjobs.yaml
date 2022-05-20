@@ -52,7 +52,6 @@ spec:
             properties:
               count:
                 exclusiveMinimum: true
-                format: int32
                 minimum: 0
                 type: integer
               id:
