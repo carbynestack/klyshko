@@ -1,7 +1,11 @@
+#
+# Copyright (c) 2022 - for information on the respective copyright owner
+# see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
 apiVersion: klyshko.carbnyestack.io/v1alpha1
 kind: TupleGenerationTask
 metadata:
   name: tuplegenerationtask-sample
 spec:
-  # Add fields here
-  foo: bar
