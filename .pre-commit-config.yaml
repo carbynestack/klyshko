@@ -24,4 +24,7 @@ repos:
     rev: v0.31.1
     hooks:
       - id: markdownlint
-        exclude: ^3RD-PARTY-LICENSES/.*|klyshko-mp-spdz/tuple_type_mapping.md$
+        args:
+          - --disable
+          - MD013
+        exclude: ^3RD-PARTY-LICENSES/.*$
