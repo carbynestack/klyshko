@@ -44,7 +44,7 @@ find vendor -type d | while IFS= read -r d; do
     jq -s ".[0] + [.[1][] | { project: .project, license: .matches[0].license }]" "${SBOM_FILE}" "${RES_FILE}" | sponge "${SBOM_FILE}"
     ARTIFACT_FOLDER="3RD-PARTY-LICENSES/${d#*/}"
     mkdir -p "${ARTIFACT_FOLDER}"
-    cp "${d}"/LICENSE* "${d}"/LICENCE* "${d}"/Licence* "${d}"/NOTICE* "${ARTIFACT_FOLDER}" 2>/dev/null || true
+    cp "${d}"/LICENSE* "${d}"/LICENCE* "${d}"/Licence* "${d}"/NOTICE* "${d}"/AUTHORS* "${d}"/Authors* "${ARTIFACT_FOLDER}" 2>/dev/null || true
     ((FOUND++))
   fi
   ((POS++))
