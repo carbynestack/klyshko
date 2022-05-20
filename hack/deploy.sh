@@ -11,13 +11,13 @@ helm install test-etcd --set auth.rbac.enabled=false --set service.type=LoadBala
 
 (
 cd klyshko-mp-spdz
-./deploy.sh
+hack/deploy.sh
 )
 (
 cd klyshko-provisioner
-./deploy.sh
+hack/deploy.sh
 )
 (
 cd klyshko-operator
-./deploy.sh
+hack/deploy.sh
 )
