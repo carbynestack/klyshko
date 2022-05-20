@@ -26,15 +26,15 @@ declare -A argsByType=(
 )
 declare -A folderByType=(
   ["BIT_GFP"]="2-p-128/Bits-p-P${pn}"
-  ["BIT_GF2N"]="2-2-128/Bits-2-P${pn}"
+  ["BIT_GF2N"]="2-2-40/Bits-2-P${pn}"
   ["INPUT_MASK_GFP"]="2-p-128/Triples-p-P${pn}"
-  ["INPUT_MASK_GF2N"]="2-2-128/Triples-2-P${pn}"
+  ["INPUT_MASK_GF2N"]="2-2-40/Triples-2-P${pn}"
   ["INVERSE_TUPLE_GFP"]="2-p-128/Inverses-p-P${pn}"
-  ["INVERSE_TUPLE_GF2N"]="2-2-128/Inverses-2-P${pn}"
+  ["INVERSE_TUPLE_GF2N"]="2-2-40/Inverses-2-P${pn}"
   ["SQUARE_TUPLE_GFP"]="2-p-128/Squares-p-P${pn}"
-  ["SQUARE_TUPLE_GF2N"]="2-2-128/Squares-2-P${pn}"
+  ["SQUARE_TUPLE_GF2N"]="2-2-40/Squares-2-P${pn}"
   ["MULTIPLICATION_TRIPLE_GFP"]="2-p-128/Triples-p-P${pn}"
-  ["MULTIPLICATION_TRIPLE_GF2N"]="2-2-128/Triples-2-P${pn}"
+  ["MULTIPLICATION_TRIPLE_GF2N"]="2-2-40/Triples-2-P${pn}"
 )
 
 # Provide required parameters in MP-SPDZ "Player-Data" folder
@@ -43,9 +43,10 @@ declare fields=("p" "2")
 for f in "${fields[@]}"
 do
 
-	folder="Player-Data/${KII_PLAYER_COUNT}-${f}-128"
+  [[ "$f" = "p" ]] && bit_width="128" || bit_width="40"
+	folder="Player-Data/${KII_PLAYER_COUNT}-${f}-${bit_width}"
 	mkdir -p "${folder}"
-  echo "Providing parameters for field ${f}-128 in folder ${folder}"
+  echo "Providing parameters for field ${f}-${bit_width} in folder ${folder}"
 
   # Write MAC key shares
   for pn in $(seq 0 $((KII_PLAYER_COUNT-1)))

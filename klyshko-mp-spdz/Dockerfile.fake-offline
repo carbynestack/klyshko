@@ -4,43 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-FROM ubuntu:20.04
-
-# Install prerequisites
-ENV TZ=Europe/Berlin
-RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    automake \
-    build-essential \
-    git \
-    libboost-dev \
-    libboost-thread-dev \
-    libntl-dev \
-    libsodium-dev \
-    libssl-dev \
-    libtool \
-    m4 \
-    python3 \
-    texinfo \
-    yasm \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# https://github.com/data61/MP-SPDZ
-ARG MP_SPDZ_REPO="https://github.com/carbynestack/MP-SPDZ"
-# v0.2.8
-ARG MP_SPDZ_VERSION="add-prng-seed-option"
-
-# Checkout MP-SPDZ repository at required version
-RUN git clone ${MP_SPDZ_REPO} mp-spdz-${MP_SPDZ_VERSION}
-WORKDIR mp-spdz-${MP_SPDZ_VERSION}
-RUN git checkout ${MP_SPDZ_VERSION} && \
-    git submodule set-url -- mpir https://github.com/wbhart/mpir
-
-# Build fake offline phase executable
-RUN echo "MY_CFLAGS += -DINSECURE" >> CONFIG.mine
-RUN make -j 8 tldr
-RUN make -j 8 Fake-Offline.x
+FROM ghcr.io/carbynestack/spdz:5350e66
 
 # Copy resources
 COPY kii-run.sh .
