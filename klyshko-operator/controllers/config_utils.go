@@ -32,8 +32,8 @@ func localPlayerID(ctx context.Context, client *client.Client, namespace string)
 	}
 
 	// Extract playerId
-	if playerId, ok := cfm.Data["playerId"]; ok {
-		pid, err := strconv.Atoi(playerId)
+	if playerID, ok := cfm.Data["playerId"]; ok {
+		pid, err := strconv.Atoi(playerID)
 		if err != nil {
 			return 0, err
 		}

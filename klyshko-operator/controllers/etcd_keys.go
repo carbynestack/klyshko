@@ -82,9 +82,8 @@ func ParseKey(s string) (Key, error) {
 			},
 			PlayerID: uint(pid),
 		}, nil
-	} else {
-		return RosterKey{
-			name,
-		}, nil
 	}
+	return RosterKey{
+		name,
+	}, nil
 }

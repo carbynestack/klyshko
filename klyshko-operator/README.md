@@ -1,9 +1,9 @@
 # Klyshko Operator
 
 The *Klyshko Operator* is the brain of the Klyshko subsystem. A set of
-Kubernetes [Controllers] is used to drive the lifecycle of jobs (VC-level) and
-tasks (VCP-level) and to decide when jobs are to be scheduled based on observing
-tuple availability in [Castor].
+Kubernetes [Controllers][k8s-controllers] is used to drive the lifecycle of jobs
+(VC-level) and tasks (VCP-level) and to decide when jobs are to be scheduled
+based on observing tuple availability in [Castor].
 
 For a high-level description of the Klyshko subsystem, its components, and how
 these interact, please see the [README] at the root of this repository.
@@ -16,6 +16,6 @@ i.e., are distributed under the Apache 2 license. Some files are handcrafted by
 the authors of Carbyne Stack and as such carry an explicit license header.
 
 [castor]: https://github.com/carbynestack/castor
-[controllers]: https://kubernetes.io/docs/concepts/architecture/controller/
+[k8s-controllers]: https://kubernetes.io/docs/concepts/architecture/controller/
 [opsdk]: https://sdk.operatorframework.io/
 [readme]: ../README.md

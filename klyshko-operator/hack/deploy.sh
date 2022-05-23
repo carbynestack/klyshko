@@ -47,8 +47,8 @@ do
   EXTRA_MAC_KEY_SHARE_P=$([ "$c" == "starbuck" ] && echo "-88222337191559387830816715872691188861" || echo "1113507028231509545156335486838233835")
   EXTRA_MAC_KEY_SHARE_2=$([ "$c" == "starbuck" ] && echo "f0cf6099e629fd0bda2de3f9515ab72b" || echo "c347ce3d9e165e4e85221f9da7591d98")
   sed -e "s/MAC_KEY_SHARE_P/${EXTRA_MAC_KEY_SHARE_P}/" -e "s/MAC_KEY_SHARE_2/${EXTRA_MAC_KEY_SHARE_2}/" config/samples/engine-params-extra.yaml.template > "/tmp/$c-engine-params-extra.yaml"
-  kubectl apply -f /tmp/$c-engine-params-secret.yaml
-  kubectl apply -f /tmp/$c-engine-params-extra.yaml
+  kubectl apply -f "/tmp/$c-engine-params-secret.yaml"
+  kubectl apply -f "/tmp/$c-engine-params-extra.yaml"
   kubectl apply -f config/samples/engine-params.yaml
 
   make deploy IMG="carbynestack/klyshko-operator:v0.0.1"

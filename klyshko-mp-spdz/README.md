@@ -24,5 +24,5 @@ The mapping from [KII] tuple types to the flags required for invoking the
 | MULTIPLICATION_TRIPLE_GFP  | --ntriples 0,n | 2-p-128/Triples-p-P0  | 37            |
 | MULTIPLICATION_TRIPLE_GF2N | --ntriples n,0 | 2-2-40/Triples-2-P0   | 34            |
 
-[kii]: ../klyshko-operator/README.md#klyshko-integration-interface-kii
+[kii]: ../README.md#klyshko-integration-interface-kii
 [readme]: ../README.md

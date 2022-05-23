@@ -236,9 +236,8 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// Error reading the object - requeue the request.
 		logger.Error(err, "failed to read job resource")
 		return ctrl.Result{}, err
-	} else {
-		logger.Info("job exists already")
 	}
+	logger.Info("job exists already")
 
 	// Create roster if not existing (no etcd transaction needed as remote job creation is triggered by roster creation)
 	resp, err := r.EtcdClient.Get(ctx, jobKey.ToEtcdKey())
@@ -348,12 +347,12 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		state = klyshkov1alpha1.JobCompleted
 
 		// Activate tuples; TODO How to deal with failures here? Introduce JobActivating state, how to sync between VCPs? Is activation still used in new Castor implementation?
-		tupleChunkId, err := uuid.Parse(job.Spec.ID)
+		tupleChunkID, err := uuid.Parse(job.Spec.ID)
 		if err != nil {
 			logger.Error(err, "invalid job id encountered")
 			return ctrl.Result{}, nil
 		}
-		err = activateTupleChunk(ctx, tupleChunkId)
+		err = activateTupleChunk(ctx, tupleChunkID)
 		if err != nil {
 			logger.Error(err, "tuple activation failed")
 			return ctrl.Result{}, nil

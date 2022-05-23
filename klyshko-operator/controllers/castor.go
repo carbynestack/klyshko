@@ -17,10 +17,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func activateTupleChunk(ctx context.Context, chunkId uuid.UUID) error {
-	logger := log.FromContext(ctx).WithValues("TupleChunkId", chunkId)
+func activateTupleChunk(ctx context.Context, chunkID uuid.UUID) error {
+	logger := log.FromContext(ctx).WithValues("TupleChunkId", chunkID)
 	client := &http.Client{}
-	url := fmt.Sprintf("http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s", chunkId) // TODO Make servername configurable / use discovery
+	url := fmt.Sprintf("http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s", chunkID) // TODO Make servername configurable / use discovery
 	logger.Info("activating tuple chunk with castor URL", "URL", url)
 	req, err := http.NewRequest(http.MethodPut, url, nil)
 	if err != nil {

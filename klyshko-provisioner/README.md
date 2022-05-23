@@ -12,5 +12,5 @@ these interact, please see the [README] at the root of this repository.
 
 [castor]: https://github.com/carbynestack/castor
 [cli]: https://github.com/carbynestack/cli
-[kii]: ../klyshko-operator/README.md#klyshko-integration-interface-kii
+[kii]: ../README.md#klyshko-integration-interface-kii
 [readme]: ../README.md

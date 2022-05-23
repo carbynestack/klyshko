@@ -132,9 +132,8 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		// Error reading the object - requeue the request.
 		logger.Error(err, "failed to read task resource")
 		return ctrl.Result{}, err
-	} else {
-		logger.Info("task exists already")
 	}
+	logger.Info("task exists already")
 
 	// Create roster entry if not existing
 	resp, err := r.EtcdClient.Get(ctx, taskKey.ToEtcdKey())

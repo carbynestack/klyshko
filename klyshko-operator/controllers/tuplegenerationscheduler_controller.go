@@ -98,18 +98,18 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 	logger.Info("sorted by priority", "Metrics.Sorted", belowThreshold)
 
 	// Create job for first below threshold
-	jobId := uuid.New().String()
+	jobID := uuid.New().String()
 	job := &klyshkov1alpha1.TupleGenerationJob{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "klyshko.carbnyestack.io/v1alpha1",
 			Kind:       "TupleGenerationJob",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      scheduler.Name + "-" + jobId,
+			Name:      scheduler.Name + "-" + jobID,
 			Namespace: req.Namespace,
 		},
 		Spec: klyshkov1alpha1.TupleGenerationJobSpec{
-			ID:    jobId,
+			ID:    jobID,
 			Type:  belowThreshold[0].TupleType,
 			Count: 10000,
 		},
