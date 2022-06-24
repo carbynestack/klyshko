@@ -59,9 +59,71 @@ to orchestrate actions across VCPs.
 
 ## Usage
 
-To deploy Klyshko to your VC you have to install the operator on all VCPs. You
-then create a scheduler on **one** of the clusters by applying the respective
-manifest, e.g.,
+To deploy Klyshko to your VC you have to perform the following steps:
+
+### Install the operator
+
+You can use the `make` tool to deploy the operator using
+
+```shell
+make deploy IMG="carbynestack/klyshko-operator:v0.0.1"
+```
+
+Remember to do this on all VCPs of your VC.
+
+### Provide CRG Configuration
+
+CRGs require some configuration that has to be provided using K8s config maps
+and secrets.
+
+Public parameters are provided in a config map with name
+`io.carbynestack.engine.params` as follows:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: io.carbynestack.engine.params
+data:
+  prime: <<PRIME>>
+```
+
+Sensitive parameters are provided using a K8s secret with name
+`io.carbynestack.engine.params.secret` as follows:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: io.carbynestack.engine.params.secret
+type: Opaque
+data:
+  mac_key_share_p: |
+    <<MAC_KEY_SHARE_P>>
+  mac_key_share_2: |
+    <<MAC_KEY_SHARE_2>>
+```
+
+Additional parameters _may_ be provided using a K8s config map with name
+`io.carbynestack.engine.params.extra` as follows:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: io.carbynestack.engine.params.extra
+data:
+  <<KEY-#1>>: <<VALUE-#1>>
+  <<KEY-#2>>: <<VALUE-#2>>
+```
+
+Please consult the documentation of the CRG you want to use to understand
+whether any extra arguments are expected.
+
+### Instantiating a Scheduler
+
+After configuration is done, you create a scheduler on **one** of the clusters
+by applying the respective manifest, e.g.,
 
 ```yaml
 apiVersion: klyshko.carbnyestack.io/v1alpha1
@@ -75,8 +137,8 @@ spec:
 
 Klyshko will start producing correlated randomness by creating respective jobs
 whenever the number of tuples for a specific type drops below the given
-`threshold`. `concurrency` specifies the maximum number of jobs are allowed to
-run concurrently. This is the upper limit across all tuple types together.
+`threshold`. `concurrency` specifies the maximum number of jobs that are allowed
+to run concurrently. This is the upper limit across jobs for all tuple types.
 
 ## Klyshko Integration Interface (KII)
 
@@ -138,6 +200,12 @@ The prime to be used for generating prime field tuples is provided in the file
 The MAC key shares for prime and binary fields are made available as files
 `mac_key_share_p` and `mac_key_share_2` in folder `/etc/kii/secret-params`.
 
+### Additional Parameters
+
+Some CRGs might require additional _non-standard_ parameters. These are made
+available by the Klyshko runtime in folder `/etc/kii/extra-params`. For an
+example of how this is used see the [MP-SPDZ fake tuple CRG][mp-spdz-fake].
+
 ## Development
 
 The `deploy.sh` scripts in the `hack` folders (top-level and within modules) can
@@ -162,3 +230,5 @@ the Carbyne Stack repository.
 Please see the Carbyne Stack
 [Contributor's Guide](https://github.com/carbynestack/carbynestack/blob/master/CONTRIBUTING.md)
 .
+
+[mp-spdz-fake]: klyshko-mp-spdz/README.md#foreign-mac-key-shares

@@ -7,5 +7,5 @@
 apiVersion: klyshko.carbnyestack.io/v1alpha1
 kind: TupleGenerationTask
 metadata:
-  name: tuplegenerationtask-sample
+  name: tuplegenerationtask-sample-0f990412-e8a0-4ef3-8e3f-a6a3a9191948-0
 spec:

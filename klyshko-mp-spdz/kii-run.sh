@@ -12,6 +12,7 @@ set -e
 # Setup offline executable command line arguments dictionary
 n=${KII_TUPLES_PER_JOB}
 pn=${KII_PLAYER_NUMBER}
+pc=${KII_PLAYER_COUNT}
 declare -A argsByType=(
   ["BIT_GFP"]="--nbits 0,${n}"
   ["BIT_GF2N"]="--nbits ${n},0"
@@ -24,20 +25,22 @@ declare -A argsByType=(
   ["MULTIPLICATION_TRIPLE_GFP"]="--ntriples 0,${n}"
   ["MULTIPLICATION_TRIPLE_GF2N"]="--ntriples ${n},0"
 )
-declare -A folderByType=(
-  ["BIT_GFP"]="2-p-128/Bits-p-P${pn}"
-  ["BIT_GF2N"]="2-2-40/Bits-2-P${pn}"
-  ["INPUT_MASK_GFP"]="2-p-128/Triples-p-P${pn}"
-  ["INPUT_MASK_GF2N"]="2-2-40/Triples-2-P${pn}"
-  ["INVERSE_TUPLE_GFP"]="2-p-128/Inverses-p-P${pn}"
-  ["INVERSE_TUPLE_GF2N"]="2-2-40/Inverses-2-P${pn}"
-  ["SQUARE_TUPLE_GFP"]="2-p-128/Squares-p-P${pn}"
-  ["SQUARE_TUPLE_GF2N"]="2-2-40/Squares-2-P${pn}"
-  ["MULTIPLICATION_TRIPLE_GFP"]="2-p-128/Triples-p-P${pn}"
-  ["MULTIPLICATION_TRIPLE_GF2N"]="2-2-40/Triples-2-P${pn}"
+declare -A tupleFileByType=(
+  ["BIT_GFP"]="${pc}-p-128/Bits-p-P${pn}"
+  ["BIT_GF2N"]="${pc}-2-40/Bits-2-P${pn}"
+  ["INPUT_MASK_GFP"]="${pc}-p-128/Triples-p-P${pn}"
+  ["INPUT_MASK_GF2N"]="${pc}-2-40/Triples-2-P${pn}"
+  ["INVERSE_TUPLE_GFP"]="${pc}-p-128/Inverses-p-P${pn}"
+  ["INVERSE_TUPLE_GF2N"]="${pc}-2-40/Inverses-2-P${pn}"
+  ["SQUARE_TUPLE_GFP"]="${pc}-p-128/Squares-p-P${pn}"
+  ["SQUARE_TUPLE_GF2N"]="${pc}-2-40/Squares-2-P${pn}"
+  ["MULTIPLICATION_TRIPLE_GFP"]="${pc}-p-128/Triples-p-P${pn}"
+  ["MULTIPLICATION_TRIPLE_GF2N"]="${pc}-2-40/Triples-2-P${pn}"
 )
 
-# Provide required parameters in MP-SPDZ "Player-Data" folder
+# Provide parameters in MP-SPDZ "Player-Data" folder.
+# Note that we always provide parameters for both prime fields and fields of
+# characteristic 2 for reasons of simplicity here.
 prime=$(cat /etc/kii/params/prime)
 declare fields=("p" "2")
 for f in "${fields[@]}"
@@ -48,16 +51,16 @@ do
 	mkdir -p "${folder}"
   echo "Providing parameters for field ${f}-${bit_width} in folder ${folder}"
 
-  # Write MAC key shares
+  # Write MAC key shares for all players as this is required by the fake
+  # offline phase implementation of MP-SPDZ
   for pn in $(seq 0 $((KII_PLAYER_COUNT-1)))
   do
     macKeyShareFile="${folder}/Player-MAC-Keys-${f}-P${pn}"
     if [[ ${pn} -eq ${KII_PLAYER_NUMBER} ]]; then
-      src="/etc/kii/secret-params"
+      macKeyShare=$(cat "/etc/kii/secret-params/mac_key_share_${f}")
     else
-      src="/etc/kii/extra-params"
+      macKeyShare=$(cat "/etc/kii/extra-params/${pn}_mac_key_share_${f}")
     fi
-    macKeyShare=$(cat "${src}/mac_key_share_${f}")
     echo "${KII_PLAYER_COUNT} ${macKeyShare}" > "${macKeyShareFile}"
     echo "MAC key share for player ${pn} written to ${macKeyShareFile}"
   done
@@ -70,4 +73,4 @@ cmd="./Fake-Offline.x -d 0 --prime ${prime} --prngseed ${seed:0:16} ${argsByType
 eval "$cmd"
 
 # Copy generated tuples to path expected by KII
-cp "Player-Data/${folderByType[${KII_TUPLE_TYPE}]}" "${KII_TUPLE_FILE}"
+cp "Player-Data/${tupleFileByType[${KII_TUPLE_TYPE}]}" "${KII_TUPLE_FILE}"

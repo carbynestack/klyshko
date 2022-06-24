@@ -23,6 +23,8 @@ import (
 	klyshkov1alpha1 "github.com/carbynestack/klyshko/api/v1alpha1"
 )
 
+const MinimumTuplesPerJob = 10000
+
 type TupleGenerationSchedulerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -81,7 +83,7 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 		}
 	}
 	logger.Info("with in-flight tuple generation jobs", "Metrics.WithInflight", telemetry.TupleMetrics)
-	belowThreshold := make([]TupleMetrics, 0)
+	var belowThreshold []TupleMetrics
 	for _, m := range telemetry.TupleMetrics {
 		if m.Available < scheduler.Spec.Threshold {
 			belowThreshold = append(belowThreshold, m)
@@ -111,7 +113,7 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 		Spec: klyshkov1alpha1.TupleGenerationJobSpec{
 			ID:    jobID,
 			Type:  belowThreshold[0].TupleType,
-			Count: 10000,
+			Count: MinimumTuplesPerJob, // TODO Make this configurable
 		},
 	}
 	err = ctrl.SetControllerReference(scheduler, job, r.Scheme)

@@ -9,7 +9,7 @@ kind: ConfigMap
 metadata:
   name: io.carbynestack.engine.params.extra
 data:
-  mac_key_share_p: |
+  PLAYER_ID_mac_key_share_p: |
     MAC_KEY_SHARE_P
-  mac_key_share_2: |
+  PLAYER_ID_mac_key_share_2: |
     MAC_KEY_SHARE_2

@@ -179,7 +179,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	if status.State == klyshkov1alpha1.TaskLaunching {
 		// Create persistent volume claim used to store generated tuples, if not existing
-		err = r.createPVC(ctx, *taskKey)
+		err = r.createPVC(ctx, taskKey)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -244,10 +244,14 @@ func (r *TupleGenerationTaskReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Complete(r)
 }
 
-func (r *TupleGenerationTaskReconciler) createPVC(ctx context.Context, key RosterEntryKey) error {
+func pvcName(key RosterEntryKey) string {
+	return key.Name + "-" + strconv.Itoa(int(key.PlayerID))
+}
+
+func (r *TupleGenerationTaskReconciler) createPVC(ctx context.Context, key *RosterEntryKey) error {
 	logger := log.FromContext(ctx).WithValues("Task.Key", key)
 	name := types.NamespacedName{
-		Name:      key.Name + "-" + strconv.Itoa(int(key.PlayerID)), // TODO Error-prone,
+		Name:      pvcName(*key),
 		Namespace: key.Namespace,
 	}
 	found := &v1.PersistentVolumeClaim{}
@@ -281,9 +285,13 @@ func (r *TupleGenerationTaskReconciler) createPVC(ctx context.Context, key Roste
 	return nil
 }
 
+func provisionerPodName(key RosterEntryKey) string {
+	return key.Name + "-provisioner"
+}
+
 func (r *TupleGenerationTaskReconciler) getProvisionerPod(ctx context.Context, key RosterEntryKey) (*v1.Pod, error) {
 	name := types.NamespacedName{
-		Name:      key.Name + "-provisioner",
+		Name:      provisionerPodName(key),
 		Namespace: key.Namespace,
 	}
 	found := &v1.Pod{}
@@ -294,7 +302,7 @@ func (r *TupleGenerationTaskReconciler) getProvisionerPod(ctx context.Context, k
 func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context, key RosterEntryKey, job *klyshkov1alpha1.TupleGenerationJob, task *klyshkov1alpha1.TupleGenerationTask) (*v1.Pod, error) {
 	logger := log.FromContext(ctx).WithValues("Task.Key", key)
 	name := types.NamespacedName{
-		Name:      key.Name + "-provisioner",
+		Name:      provisionerPodName(key),
 		Namespace: key.Namespace,
 	}
 	found, err := r.getProvisionerPod(ctx, key)
@@ -338,7 +346,7 @@ func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context
 					Name: "kii",
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: key.Name + "-" + strconv.Itoa(int(key.PlayerID)), // TODO Error-prone
+							ClaimName: pvcName(key),
 						},
 					},
 				},
@@ -379,9 +387,6 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      task.Name,
 			Namespace: task.Namespace,
-			//Finalizers: []string{
-			//	"klyshko.carbnyestack.io/provision-tuples",
-			//},
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
@@ -454,7 +459,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 					Name: "kii",
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: task.Name,
+							ClaimName: pvcName(key),
 						},
 					},
 				},

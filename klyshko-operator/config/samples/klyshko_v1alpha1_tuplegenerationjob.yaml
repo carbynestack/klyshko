@@ -7,8 +7,8 @@
 apiVersion: klyshko.carbnyestack.io/v1alpha1
 kind: TupleGenerationJob
 metadata:
-  name: tuplegenerationjob-sample
+  name: tuplegenerationjob-sample-0f990412-e8a0-4ef3-8e3f-a6a3a9191948
 spec:
-  id: 9fc7f5b7-09d9-4c62-97c7-2d7eeddfb858
+  id: 0f990412-e8a0-4ef3-8e3f-a6a3a9191948
   type: MULTIPLICATION_TRIPLE_GFP
   count: 10000

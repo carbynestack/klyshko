@@ -27,6 +27,8 @@ const (
 	JobFailed = "Failed"
 )
 
+// IsValid returns true if this state is among the defined ones and false
+// otherwise.
 func (s TupleGenerationJobState) IsValid() bool {
 	switch s {
 	case JobPending, JobRunning, JobCompleted, JobFailed:

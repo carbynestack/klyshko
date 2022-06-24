@@ -9,5 +9,4 @@ kind: ConfigMap
 metadata:
   name: io.carbynestack.engine.params
 data:
-  prime: |
-    198766463529478683931867765928436695041
+  prime: "198766463529478683931867765928436695041"

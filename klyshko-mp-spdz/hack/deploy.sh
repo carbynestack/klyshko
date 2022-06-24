@@ -5,6 +5,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
+
+# Fail, if any command fails
+set -e
+
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 

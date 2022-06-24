@@ -6,6 +6,33 @@ ability to generate fake tuples.
 For a high-level description of the Klyshko subsystem, its components, and how
 these interact, please see the [README] at the root of this repository.
 
+## Foreign MAC Key Shares
+
+The MP-SPDZ fake tuple generator requires all MAC key shares to be available to
+all parties. They are expected to be made available using the
+[KII mechanism for providing extra parameters][kii-extra] using a config map
+like the following:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: io.carbynestack.engine.params.extra
+data:
+  1_mac_key_share_p: |
+    ...
+  1_mac_key_share_2: |
+   ...
+  2_mac_key_share_p: |
+    ...
+  2_mac_key_share_2: |
+    ...
+```
+
+There must be entries for all VCPs except the local one (although it doesn't
+hurt if that is also provided). The numeric prefix of the key specifies the
+number (zero-based) of the VCP this key is for.
+
 ## KII Tuple Type Mapping
 
 The mapping from [KII] tuple types to the flags required for invoking the
@@ -25,4 +52,5 @@ The mapping from [KII] tuple types to the flags required for invoking the
 | MULTIPLICATION_TRIPLE_GF2N | --ntriples n,0 | 2-2-40/Triples-2-P0   | 34            |
 
 [kii]: ../README.md#klyshko-integration-interface-kii
+[kii-extra]: ../README.md#additional-parameters
 [readme]: ../README.md

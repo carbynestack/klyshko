@@ -1,3 +1,5 @@
+# Dockerfile scaffolded by the Operator SDK.
+
 # Build the manager binary
 FROM golang:1.16 as builder
 

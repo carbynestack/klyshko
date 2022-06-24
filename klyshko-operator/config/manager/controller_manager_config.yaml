@@ -8,4 +8,4 @@ webhook:
   port: 9443
 leaderElection:
   leaderElect: true
-  resourceName: 02e9e224.carbnyestack.io
+  resourceName: operator.klyshko.carbynestack.io

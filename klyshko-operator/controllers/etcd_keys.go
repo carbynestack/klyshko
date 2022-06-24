@@ -15,6 +15,8 @@ import (
 	"strconv"
 )
 
+const rosterKey = "/klyshko/roster"
+
 type Key interface {
 	ToEtcdKey() string
 }
@@ -24,7 +26,7 @@ type RosterKey struct {
 }
 
 func (k RosterKey) ToEtcdKey() string {
-	return rosterKey + "/" + k.Namespace + "/" + k.Name
+	return fmt.Sprintf("%s/%s/%s", rosterKey, k.Namespace, k.Name)
 }
 
 func (k RosterKey) String() string {
@@ -37,14 +39,12 @@ type RosterEntryKey struct {
 }
 
 func (k RosterEntryKey) ToEtcdKey() string {
-	return rosterKey + "/" + k.Namespace + "/" + k.Name + "/" + strconv.Itoa(int(k.PlayerID))
+	return fmt.Sprintf("%s/%d", k.RosterKey.ToEtcdKey(), k.PlayerID)
 }
 
 func (k RosterEntryKey) String() string {
 	return k.ToEtcdKey()
 }
-
-const rosterKey = "/klyshko/roster"
 
 var etcdRosterKeyPattern = regexp.MustCompile("^" + rosterKey + "/(?P<namespace>(\\w|-)+)/(?P<jobName>(\\w|-)+)(?:/(?P<localPlayerID>\\d+))?$")
 
@@ -68,22 +68,23 @@ func ParseKey(s string) (Key, error) {
 		return nil, fmt.Errorf("not a key: %v", s)
 	}
 	name := types.NamespacedName{Name: parts["jobName"], Namespace: parts["namespace"]}
-	if playerID, ok := parts["localPlayerID"]; ok {
-		pid, err := strconv.Atoi(playerID)
-		if err != nil {
-			return nil, fmt.Errorf("invalid playerId '%v' - not an integer: %w", playerID, err)
-		}
-		if pid < 0 || pid > math.MaxUint32 {
-			return nil, fmt.Errorf("invalid playerId '%d' - must be in range [0,%d]", pid, math.MaxUint32)
-		}
-		return RosterEntryKey{
-			RosterKey: RosterKey{
-				name,
-			},
-			PlayerID: uint(pid),
+	playerID, ok := parts["localPlayerID"]
+	if !ok {
+		return RosterKey{
+			name,
 		}, nil
 	}
-	return RosterKey{
-		name,
+	pid, err := strconv.Atoi(playerID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid playerId '%v' - not an integer: %w", playerID, err)
+	}
+	if pid < 0 || pid > math.MaxUint32 {
+		return nil, fmt.Errorf("invalid playerId '%d' - must be in range [0,%d]", pid, math.MaxUint32)
+	}
+	return RosterEntryKey{
+		RosterKey: RosterKey{
+			name,
+		},
+		PlayerID: uint(pid),
 	}, nil
 }

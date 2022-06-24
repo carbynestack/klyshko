@@ -34,11 +34,12 @@ type TupleGenerationJobReconciler struct {
 }
 
 func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client) *TupleGenerationJobReconciler {
-	r := new(TupleGenerationJobReconciler)
-	r.Client = client
-	r.Scheme = scheme
-	r.EtcdClient = etcdClient
-	r.rosterWatcherCh = etcdClient.Watch(context.Background(), rosterKey, clientv3.WithPrefix()) // TODO Close channel?
+	r := &TupleGenerationJobReconciler{
+		Client:          client,
+		Scheme:          scheme,
+		EtcdClient:      etcdClient,
+		rosterWatcherCh: etcdClient.Watch(context.Background(), rosterKey, clientv3.WithPrefix()), // TODO Close channel?
+	}
 	go r.handleWatchEvents()
 	return r
 }
@@ -89,7 +90,7 @@ func (r *TupleGenerationJobReconciler) handleJobUpdate(ctx context.Context, key 
 			return
 		}
 		// TODO Create or update depending on whether Job already exists
-		err = r.createJob(ctx, key.NamespacedName, jobSpec)
+		err = r.createJobIfNotExists(ctx, key.NamespacedName, jobSpec)
 		if err != nil {
 			logger.Error(err, "failed to create job")
 			return
@@ -101,7 +102,6 @@ func (r *TupleGenerationJobReconciler) handleJobUpdate(ctx context.Context, key 
 		err := r.Client.Get(ctx, key.NamespacedName, found)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				logger.Error(err, "job does not exist - ignoring")
 				return
 			}
 			logger.Error(err, "failed to read job resource")
@@ -172,7 +172,6 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 		err = r.Get(ctx, taskName, task)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				logger.Error(err, "proxy task does not exist - ignoring")
 				return
 			}
 			logger.Error(err, "failed to read proxy task resource")
@@ -187,7 +186,7 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 	}
 }
 
-func (r *TupleGenerationJobReconciler) createJob(ctx context.Context, name types.NamespacedName, jobSpec *klyshkov1alpha1.TupleGenerationJobSpec) error {
+func (r *TupleGenerationJobReconciler) createJobIfNotExists(ctx context.Context, name types.NamespacedName, jobSpec *klyshkov1alpha1.TupleGenerationJobSpec) error {
 	logger := log.FromContext(ctx).WithValues("Job.Name", name)
 	found := &klyshkov1alpha1.TupleGenerationJob{}
 	err := r.Client.Get(ctx, name, found)
@@ -336,8 +335,13 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 		return false
 	}
+	nbrOfPlayers, err := numberOfPlayers(ctx, &r.Client, req.Namespace)
+	if err != nil {
+		logger.Error(err, "can't read playerCount from VCP configuration")
+		return ctrl.Result{RequeueAfter: 60 * time.Second}, err
+	}
 	var state klyshkov1alpha1.TupleGenerationJobState
-	if len(ownedBy) < 2 {
+	if uint(len(ownedBy)) < nbrOfPlayers {
 		state = klyshkov1alpha1.JobPending
 	} else if !allTerminated(ownedBy) {
 		state = klyshkov1alpha1.JobRunning

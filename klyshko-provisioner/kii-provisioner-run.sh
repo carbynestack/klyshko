@@ -14,6 +14,7 @@ cat <<EOF > cs-config
 {
   "prime" : 0,
   "r" : 0,
+  "rinv" : 0,
   "noSslValidation" : true,
   "trustedCertificates" : [ ],
   "providers" : [ {
@@ -28,8 +29,7 @@ cat <<EOF > cs-config
     "ephemeralServiceUrl" : "http://ignore",
     "id" : 2,
     "baseUrl" : "http://ignore"
-  } ],
-  "rinv" : 0
+  } ]
 }
 EOF
 

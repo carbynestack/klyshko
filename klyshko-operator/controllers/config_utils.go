@@ -18,30 +18,59 @@ import (
 	"strconv"
 )
 
-func localPlayerID(ctx context.Context, client *client.Client, namespace string) (uint, error) {
+const VcpConfigMapName = "cs-vcp-config"
 
-	// Get VCP configuration config map
+func getVcpConfig(ctx context.Context, client *client.Client, namespace string) (v1.ConfigMap, error) {
 	name := types.NamespacedName{
 		Namespace: namespace,
-		Name:      "vcp-config",
+		Name:      VcpConfigMapName,
 	}
-	cfm := &v1.ConfigMap{}
-	err := (*client).Get(ctx, name, cfm)
+	cfm := v1.ConfigMap{}
+	err := (*client).Get(ctx, name, &cfm)
 	if err != nil {
-		return 0, errors.Unwrap(fmt.Errorf("VCP configuration not found: %w", err))
+		return cfm, errors.Unwrap(fmt.Errorf("VCP configuration not found: %w", err))
+	}
+	return cfm, nil
+}
+
+func localPlayerID(ctx context.Context, client *client.Client, namespace string) (uint, error) {
+	cfm, err := getVcpConfig(ctx, client, namespace)
+	if err != nil {
+		return 0, err
 	}
 
 	// Extract playerId
-	if playerID, ok := cfm.Data["playerId"]; ok {
-		pid, err := strconv.Atoi(playerID)
-		if err != nil {
-			return 0, err
-		}
-		if pid < 0 || pid > math.MaxUint32 {
-			return 0, fmt.Errorf("invalid playerId '%d'- must be in range [0,%d]", pid, math.MaxUint32)
-		}
-		return uint(pid), nil
-	} else {
+	playerIDStr, ok := cfm.Data["playerId"]
+	if !ok {
 		return 0, errors.New("invalid VCP configuration - missing playerId")
 	}
+	playerID, err := strconv.Atoi(playerIDStr)
+	if err != nil {
+		return 0, err
+	}
+	if playerID < 0 || playerID > math.MaxUint32 {
+		return 0, fmt.Errorf("invalid playerId '%d'- must be in range [0,%d]", playerID, math.MaxUint32)
+	}
+	return uint(playerID), nil
+}
+
+func numberOfPlayers(ctx context.Context, client *client.Client, namespace string) (uint, error) {
+	cfm, err := getVcpConfig(ctx, client, namespace)
+	if err != nil {
+		return 0, err
+	}
+
+	// Extract playerCount
+	playerCountStr, ok := cfm.Data["playerCount"]
+	if !ok {
+		return 0, errors.New("invalid VCP configuration - missing playerCount")
+	}
+	playerCount, err := strconv.Atoi(playerCountStr)
+	if err != nil {
+		return 0, err
+	}
+	if playerCount < 0 || playerCount > math.MaxUint32 {
+		return 0, fmt.Errorf("invalid playerCount '%d'- must be in range [0,%d]", playerCount, math.MaxUint32)
+	}
+	return uint(playerCount), nil
 }

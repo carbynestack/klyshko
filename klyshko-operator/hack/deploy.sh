@@ -5,8 +5,35 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
+
+# Fail, if any command fails
+set -e
+
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
+
+# Makes etcdctl with version specified as environment variable ETCD_VERSION available in ./bin folder
+function provide_etcdctl() {
+  REQUIRED_VERSION=$1
+  echo "Checking for etcdctl ${REQUIRED_VERSION} in $(pwd)/bin"
+  if [[ -f "bin/etcdctl" ]]
+  then
+      INSTALLED_VERSION="v$(bin/etcdctl version | head -1 | cut -c 18-)"
+      if [[ ${INSTALLED_VERSION} != "${REQUIRED_VERSION}" ]]
+      then
+        echo "Removing version ${INSTALLED_VERSION}"
+        rm bin/etcdctl
+      else
+        return 0
+      fi
+  fi
+  echo "Downloading version ${REQUIRED_VERSION}"
+  DOWNLOAD_URL=https://github.com/etcd-io/etcd/releases/download
+  rm -f "/tmp/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz"
+  curl -L "${DOWNLOAD_URL}/${REQUIRED_VERSION}/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz" -o "/tmp/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz"
+  tar --extract --file="/tmp/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz" -C bin/ "etcd-${REQUIRED_VERSION}-linux-amd64/etcdctl" --strip-components=1
+  rm -f "/tmp/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz"
+}
 
 declare -a CLUSTERS=("starbuck" "apollo")
 
@@ -15,15 +42,13 @@ for c in "${CLUSTERS[@]}"
 do
   echo -e "${GREEN}Undeploying from $c${NC}"
   kubectl config use-context "kind-$c"
-  if [ "$c" == "apollo" ]; then
-    kubectl delete -f config/samples/klyshko_v1alpha1_tuplegenerationjob.yaml
-  fi
-  kubectl delete --all tgj
-  kubectl delete --all tgt
+  kubectl delete --all tuplegenerationjobs
+  kubectl delete --all tuplegenerationtasks
   make undeploy IMG="carbynestack/klyshko-operator:v0.0.1"
 done
 
 echo -e "${GREEN}Cleaning up etcd${NC}"
+provide_etcdctl "${ETCD_VERSION}"
 bin/etcdctl --endpoints 172.18.1.129:2379 del "/klyshko/roster" --prefix
 
 echo -e "${GREEN}Building code and image${NC}"
@@ -41,12 +66,21 @@ do
   echo -e "${GREEN}Deploying in $c${NC}"
   kubectl config use-context "kind-$c"
   kubectl apply -f "config/samples/$c-vcp.yaml"
-  MAC_KEY_SHARE_P=$([ "$c" == "apollo" ] && echo "-88222337191559387830816715872691188861" | base64 || echo "1113507028231509545156335486838233835" | base64)
-  MAC_KEY_SHARE_2=$([ "$c" == "apollo" ] && echo "f0cf6099e629fd0bda2de3f9515ab72b" | base64 || echo "c347ce3d9e165e4e85221f9da7591d98" | base64)
+  if [ "$c" == "apollo" ]; then
+    MAC_KEY_SHARE_P=$(echo "-88222337191559387830816715872691188861" | base64)
+    MAC_KEY_SHARE_2=$(echo "f0cf6099e629fd0bda2de3f9515ab72b" | base64)
+    EXTRA_MAC_KEY_SHARE_P="1113507028231509545156335486838233835"
+    EXTRA_MAC_KEY_SHARE_2="c347ce3d9e165e4e85221f9da7591d98"
+    OTHER_PLAYER_ID=1
+  else
+    MAC_KEY_SHARE_P=$(echo "1113507028231509545156335486838233835" | base64)
+    MAC_KEY_SHARE_2=$(echo "c347ce3d9e165e4e85221f9da7591d98" | base64)
+    EXTRA_MAC_KEY_SHARE_P="-88222337191559387830816715872691188861"
+    EXTRA_MAC_KEY_SHARE_2="f0cf6099e629fd0bda2de3f9515ab72b"
+    OTHER_PLAYER_ID=0
+  fi
   sed -e "s/MAC_KEY_SHARE_P/${MAC_KEY_SHARE_P}/" -e "s/MAC_KEY_SHARE_2/${MAC_KEY_SHARE_2}/" config/samples/engine-params-secret.yaml.template > "/tmp/$c-engine-params-secret.yaml"
-  EXTRA_MAC_KEY_SHARE_P=$([ "$c" == "starbuck" ] && echo "-88222337191559387830816715872691188861" || echo "1113507028231509545156335486838233835")
-  EXTRA_MAC_KEY_SHARE_2=$([ "$c" == "starbuck" ] && echo "f0cf6099e629fd0bda2de3f9515ab72b" || echo "c347ce3d9e165e4e85221f9da7591d98")
-  sed -e "s/MAC_KEY_SHARE_P/${EXTRA_MAC_KEY_SHARE_P}/" -e "s/MAC_KEY_SHARE_2/${EXTRA_MAC_KEY_SHARE_2}/" config/samples/engine-params-extra.yaml.template > "/tmp/$c-engine-params-extra.yaml"
+  sed -e "s/MAC_KEY_SHARE_P/${EXTRA_MAC_KEY_SHARE_P}/" -e "s/MAC_KEY_SHARE_2/${EXTRA_MAC_KEY_SHARE_2}/" -e "s/PLAYER_ID/${OTHER_PLAYER_ID}/" config/samples/engine-params-extra.yaml.template > "/tmp/$c-engine-params-extra.yaml"
   kubectl apply -f "/tmp/$c-engine-params-secret.yaml"
   kubectl apply -f "/tmp/$c-engine-params-extra.yaml"
   kubectl apply -f config/samples/engine-params.yaml
