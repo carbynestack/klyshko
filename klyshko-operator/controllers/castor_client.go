@@ -19,24 +19,43 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func activateTupleChunk(ctx context.Context, chunkID uuid.UUID) error {
+type CastorClient struct {
+	Url    string
+	client *http.Client
+}
+
+func NewCastorClient(url string) *CastorClient {
+	return &CastorClient{
+		Url:    url,
+		client: &http.Client{},
+	}
+}
+
+func (castorClient CastorClient) activateTupleChunk(ctx context.Context, chunkID uuid.UUID) error {
 	logger := log.FromContext(ctx).WithValues("TupleChunkId", chunkID)
-	client := &http.Client{}
-	url := fmt.Sprintf("http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s", chunkID) // TODO Make servername configurable / use discovery
+	url := fmt.Sprintf("%s/intra-vcp/tuple-chunks/activate/%s", castorClient.Url, chunkID)
 	logger.Info("activating tuple chunk with castor URL", "URL", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := client.Do(req)
+	resp, err := castorClient.client.Do(req)
 	if err != nil {
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
 		return errors.New(fmt.Sprintf("received response with status code %d", resp.StatusCode))
 	}
-	defer resp.Body.Close()
-	defer io.Copy(ioutil.Discard, resp.Body)
+	defer func() {
+		_, err := io.Copy(ioutil.Discard, resp.Body)
+		if err != nil {
+			logger.Error(err, "failed to discard response from castor")
+		}
+		err = resp.Body.Close()
+		if err != nil {
+			logger.Error(err, "failed to close response from castor")
+		}
+	}()
 	logger.Info("response from castor", "Status", resp.Status)
 	return nil
 }
@@ -51,12 +70,16 @@ type Telemetry struct {
 	TupleMetrics []TupleMetrics `json:"metrics"`
 }
 
-func getTelemetry(ctx context.Context) (Telemetry, error) {
+func (castorClient CastorClient) getTelemetry(ctx context.Context) (Telemetry, error) {
 	logger := log.FromContext(ctx)
-	client := &http.Client{}
 
 	// Building the request
-	req, err := http.NewRequestWithContext(ctx, "GET", "http://cs-castor.default.svc.cluster.local:10100/intra-vcp/telemetry", nil) // TODO Make servername configurable / use discovery
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"GET",
+		fmt.Sprintf("%s/intra-vcp/telemetry", castorClient.Url),
+		nil,
+	)
 	if err != nil {
 		logger.Error(err, "failed to build request for castor telemetry data")
 		return Telemetry{}, err
@@ -65,7 +88,7 @@ func getTelemetry(ctx context.Context) (Telemetry, error) {
 	req.Header.Add("Content-Type", "application/json")
 
 	// Doing the request
-	resp, err := client.Do(req)
+	resp, err := castorClient.client.Do(req)
 	if err != nil {
 		logger.Error(err, "failed to fetch castor telemetry data")
 		return Telemetry{}, err
@@ -76,15 +99,22 @@ func getTelemetry(ctx context.Context) (Telemetry, error) {
 		return Telemetry{}, err
 	}
 
-	// Read and parse response
-	defer resp.Body.Close()
+	// Read, parse, and return telemetry response
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			logger.Error(err, "failed to close response from castor")
+		}
+	}()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		logger.Error(err, "failed to read response body")
 		return Telemetry{}, err
 	}
 	var response Telemetry
-	json.Unmarshal(bodyBytes, &response)
-
+	err = json.Unmarshal(bodyBytes, &response)
+	if err != nil {
+		return Telemetry{}, err
+	}
 	return response, nil
 }

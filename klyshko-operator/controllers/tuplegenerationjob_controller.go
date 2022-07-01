@@ -31,14 +31,16 @@ type TupleGenerationJobReconciler struct {
 	Scheme          *runtime.Scheme
 	EtcdClient      *clientv3.Client
 	rosterWatcherCh clientv3.WatchChan
+	CastorClient    *CastorClient
 }
 
-func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client) *TupleGenerationJobReconciler {
+func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client, castorClient *CastorClient) *TupleGenerationJobReconciler {
 	r := &TupleGenerationJobReconciler{
 		Client:          client,
 		Scheme:          scheme,
 		EtcdClient:      etcdClient,
 		rosterWatcherCh: etcdClient.Watch(context.Background(), rosterKey, clientv3.WithPrefix()), // TODO Close channel?
+		CastorClient:    castorClient,
 	}
 	go r.handleWatchEvents()
 	return r
@@ -356,7 +358,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 			logger.Error(err, "invalid job id encountered")
 			return ctrl.Result{}, nil
 		}
-		err = activateTupleChunk(ctx, tupleChunkID)
+		err = r.CastorClient.activateTupleChunk(ctx, tupleChunkID)
 		if err != nil {
 			logger.Error(err, "tuple activation failed")
 			return ctrl.Result{}, nil

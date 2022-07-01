@@ -27,7 +27,8 @@ const MinimumTuplesPerJob = 10000
 
 type TupleGenerationSchedulerReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme       *runtime.Scheme
+	CastorClient *CastorClient
 }
 
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationschedulers,verbs=get;list;watch;create;update;patch;delete
@@ -69,7 +70,7 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 	// 1. Compute available and in generation number of tuples per type
 	// 2. Filter out all above threshold
 	// 3. Sort ascending wrt to sum from step 1
-	telemetry, err := getTelemetry(ctx)
+	telemetry, err := r.CastorClient.getTelemetry(ctx)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, err
 	}
