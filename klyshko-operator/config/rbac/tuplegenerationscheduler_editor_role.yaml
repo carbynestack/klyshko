@@ -1,0 +1,24 @@
+# permissions for end users to edit tuplegenerationschedulers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tuplegenerationscheduler-editor-role
+rules:
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationschedulers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationschedulers/status
+  verbs:
+  - get

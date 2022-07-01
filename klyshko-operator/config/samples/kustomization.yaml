@@ -1,0 +1,6 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- klyshko_v1alpha1_tuplegenerationjob.yaml
+- klyshko_v1alpha1_tuplegenerationtask.yaml
+- klyshko_v1alpha1_tuplegenerationscheduler.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

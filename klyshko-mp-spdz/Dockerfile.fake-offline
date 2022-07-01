@@ -1,0 +1,10 @@
+#
+# Copyright (c) 2022 - for information on the respective copyright owner
+# see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+FROM ghcr.io/carbynestack/spdz:5350e66
+
+# Copy resources
+COPY kii-run.sh .
