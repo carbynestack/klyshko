@@ -119,7 +119,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	task := &klyshkov1alpha1.TupleGenerationTask{}
 	err = r.Get(ctx, types.NamespacedName{
 		Namespace: job.Namespace,
-		Name:      r.taskName(job, playerID),
+		Name:      r.taskNameForJob(job, playerID),
 	}, task)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -219,16 +219,21 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
-// taskName returns the name of the task for a given player associated with the given job.
-func (r *TupleGenerationJobReconciler) taskName(job *klyshkov1alpha1.TupleGenerationJob, playerID uint) string {
-	return job.Name + "-" + strconv.Itoa(int(playerID))
+// taskNameForJob returns the name of the task for a given player associated with the given job.
+func (r *TupleGenerationJobReconciler) taskNameForJob(job *klyshkov1alpha1.TupleGenerationJob, playerID uint) string {
+	return r.taskName(job.Name, playerID)
+}
+
+// taskName returns the name of the task for a given player derived from a given job name.
+func (r *TupleGenerationJobReconciler) taskName(jobName string, playerID uint) string {
+	return jobName + "-" + strconv.Itoa(int(playerID))
 }
 
 // taskForJob assembles the TupleGenerationJob resource description for the given job and VCP.
 func (r *TupleGenerationJobReconciler) taskForJob(job *klyshkov1alpha1.TupleGenerationJob, playerID uint) (*klyshkov1alpha1.TupleGenerationTask, error) {
 	task := &klyshkov1alpha1.TupleGenerationTask{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.taskName(job, playerID),
+			Name:      r.taskNameForJob(job, playerID),
 			Namespace: job.Namespace,
 		},
 		Spec:   klyshkov1alpha1.TupleGenerationTaskSpec{},
@@ -321,22 +326,22 @@ func (r *TupleGenerationJobReconciler) handleJobUpdate(ctx context.Context, key 
 func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Context, key RosterEntryKey, ev *clientv3.Event) {
 	logger := r.Logger.WithValues("Task.Key", key)
 
-	// Lookup job
-	job := &klyshkov1alpha1.TupleGenerationJob{}
-	err := r.Get(ctx, key.NamespacedName, job)
-	if err != nil {
-		logger.Error(err, "Failed to read job resource")
-		return
-	}
-
-	taskName := types.NamespacedName{
-		Namespace: key.Namespace,
-		Name:      r.taskName(job, key.PlayerID),
-	}
-
 	// TODO Failure in one of the below handlers requires reconciliation, how to do that?
 	switch ev.Type {
 	case mvccpb.PUT:
+
+		// Lookup job
+		job := &klyshkov1alpha1.TupleGenerationJob{}
+		err := r.Get(ctx, key.NamespacedName, job)
+		if err != nil {
+			logger.Error(err, "Failed to read job resource")
+			return
+		}
+		taskName := types.NamespacedName{
+			Namespace: key.Namespace,
+			Name:      r.taskNameForJob(job, key.PlayerID),
+		}
+
 		found := &klyshkov1alpha1.TupleGenerationTask{}
 		if err := r.Client.Get(ctx, taskName, found); err == nil {
 			// Update local proxy task status
@@ -378,8 +383,12 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 		}
 	case mvccpb.DELETE:
 		// Delete task for job if exists
+		taskName := types.NamespacedName{
+			Namespace: key.Namespace,
+			Name:      r.taskName(key.Name, key.PlayerID),
+		}
 		task := &klyshkov1alpha1.TupleGenerationTask{}
-		err = r.Get(ctx, taskName, task)
+		err := r.Get(ctx, taskName, task)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				return

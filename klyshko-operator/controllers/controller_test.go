@@ -281,6 +281,24 @@ var _ = Describe("Generating tuples", func() {
 				}, Timeout, PollingInterval).Should(BeTrue())
 			}
 
+			// Ensure that proxy tasks get deleted on all VCPs eventually after local tasks are deleted.
+			for i := 0; i < NumberOfVCPs; i++ {
+				Expect(vc.vcps[i].k8sClient.Delete(ctx, &localTasksByVCP[i])).Should(Succeed())
+				for j := 0; j < NumberOfVCPs; j++ {
+					if i == j {
+						continue
+					}
+					key := client.ObjectKey{
+						Namespace: jobs[j].GetNamespace(),
+						Name:      fmt.Sprintf("%s-%d", jobs[j].GetName(), i),
+					}
+					proxyTask := &klyshkov1alpha1.TupleGenerationTask{}
+					Eventually(func() bool {
+						return apierrors.IsNotFound(vc.vcps[j].k8sClient.Get(ctx, key, proxyTask))
+					}, Timeout, PollingInterval).Should(BeTrue())
+				}
+			}
+
 		})
 	})
 })
