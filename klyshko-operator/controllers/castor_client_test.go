@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const validCastorUrl = "http://cs-castor.default.svc.cluster.local:10100"
-const invalidCastorUrl = "http://cs-castor.default.svc.cluster.local:10101"
+const validCastorURL = "http://cs-castor.default.svc.cluster.local:10100"
+const invalidCastorURL = "http://cs-castor.default.svc.cluster.local:10101"
 
 var _ = Describe("Fetching telemetry", func() {
 
@@ -43,12 +43,12 @@ var _ = Describe("Fetching telemetry", func() {
 			Expect(err).NotTo(HaveOccurred())
 			httpmock.RegisterResponder(
 				"GET",
-				fmt.Sprintf("=~^%s/intra-vcp/telemetry", validCastorUrl),
+				fmt.Sprintf("=~^%s/intra-vcp/telemetry", validCastorURL),
 				responder,
 			)
 		})
 		It("succeeds", func() {
-			castorClient := NewCastorClient(validCastorUrl)
+			castorClient := NewCastorClient(validCastorURL)
 			telemetry, err := castorClient.getTelemetry(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(telemetry).To(Equal(expectedTelemetry))
@@ -60,12 +60,12 @@ var _ = Describe("Fetching telemetry", func() {
 			httpmock.Activate()
 			httpmock.RegisterResponder(
 				"GET",
-				fmt.Sprintf("=~^%s/intra-vcp/telemetry", validCastorUrl),
+				fmt.Sprintf("=~^%s/intra-vcp/telemetry", validCastorURL),
 				httpmock.NewStringResponder(404, ""),
 			)
 		})
 		It("fails", func() {
-			castorClient := NewCastorClient(validCastorUrl)
+			castorClient := NewCastorClient(validCastorURL)
 			_, err := castorClient.getTelemetry(ctx)
 			Expect(err).To(HaveOccurred())
 		})
@@ -73,7 +73,7 @@ var _ = Describe("Fetching telemetry", func() {
 
 	When("when Castor service is not available", func() {
 		It("fails", func() {
-			castorClient := NewCastorClient(invalidCastorUrl)
+			castorClient := NewCastorClient(invalidCastorURL)
 			_, err := castorClient.getTelemetry(ctx)
 			Expect(err).To(HaveOccurred())
 		})
@@ -94,13 +94,13 @@ var _ = Describe("Activating a tuple chunk", func() {
 			httpmock.Activate()
 			httpmock.RegisterResponder(
 				"PUT",
-				fmt.Sprintf("=~^%s/intra-vcp/tuple-chunks/activate/.*", validCastorUrl),
+				fmt.Sprintf("=~^%s/intra-vcp/tuple-chunks/activate/.*", validCastorURL),
 				httpmock.NewStringResponder(200, ""),
 			)
 		})
 		It("succeeds", func() {
 			chunkId := uuid.New()
-			castorClient := NewCastorClient(validCastorUrl)
+			castorClient := NewCastorClient(validCastorURL)
 			err := castorClient.activateTupleChunk(ctx, chunkId)
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -111,13 +111,13 @@ var _ = Describe("Activating a tuple chunk", func() {
 			httpmock.Activate()
 			httpmock.RegisterResponder(
 				"PUT",
-				fmt.Sprintf("=~^%s/intra-vcp/tuple-chunks/activate/.*", validCastorUrl),
+				fmt.Sprintf("=~^%s/intra-vcp/tuple-chunks/activate/.*", validCastorURL),
 				httpmock.NewStringResponder(404, ""),
 			)
 		})
 		It("fails", func() {
 			chunkId := uuid.New()
-			castorClient := NewCastorClient(validCastorUrl)
+			castorClient := NewCastorClient(validCastorURL)
 			err := castorClient.activateTupleChunk(ctx, chunkId)
 			Expect(err).To(HaveOccurred())
 		})
@@ -126,7 +126,7 @@ var _ = Describe("Activating a tuple chunk", func() {
 	When("when Castor service is not available", func() {
 		It("fails", func() {
 			chunkId := uuid.New()
-			castorClient := NewCastorClient(invalidCastorUrl)
+			castorClient := NewCastorClient(invalidCastorURL)
 			err := castorClient.activateTupleChunk(ctx, chunkId)
 			Expect(err).To(HaveOccurred())
 		})

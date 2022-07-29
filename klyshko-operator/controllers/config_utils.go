@@ -18,12 +18,12 @@ import (
 	"strconv"
 )
 
-const VcpConfigMapName = "cs-vcp-config"
+const VCPConfigMapName = "cs-vcp-config"
 
-func getVcpConfig(ctx context.Context, client *client.Client, namespace string) (v1.ConfigMap, error) {
+func getVCPConfig(ctx context.Context, client *client.Client, namespace string) (v1.ConfigMap, error) {
 	name := types.NamespacedName{
 		Namespace: namespace,
-		Name:      VcpConfigMapName,
+		Name:      VCPConfigMapName,
 	}
 	cfm := v1.ConfigMap{}
 	err := (*client).Get(ctx, name, &cfm)
@@ -34,7 +34,7 @@ func getVcpConfig(ctx context.Context, client *client.Client, namespace string) 
 }
 
 func localPlayerID(ctx context.Context, client *client.Client, namespace string) (uint, error) {
-	cfm, err := getVcpConfig(ctx, client, namespace)
+	cfm, err := getVCPConfig(ctx, client, namespace)
 	if err != nil {
 		return 0, err
 	}
@@ -54,8 +54,8 @@ func localPlayerID(ctx context.Context, client *client.Client, namespace string)
 	return uint(playerID), nil
 }
 
-func numberOfPlayers(ctx context.Context, client *client.Client, namespace string) (uint, error) {
-	cfm, err := getVcpConfig(ctx, client, namespace)
+func numberOfVCPs(ctx context.Context, client *client.Client, namespace string) (uint, error) {
+	cfm, err := getVCPConfig(ctx, client, namespace)
 	if err != nil {
 		return 0, err
 	}

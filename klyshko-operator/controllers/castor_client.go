@@ -20,20 +20,20 @@ import (
 )
 
 type CastorClient struct {
-	Url    string
+	URL    string
 	client *http.Client
 }
 
 func NewCastorClient(url string) *CastorClient {
 	return &CastorClient{
-		Url:    url,
+		URL:    url,
 		client: &http.Client{},
 	}
 }
 
 func (castorClient CastorClient) activateTupleChunk(ctx context.Context, chunkID uuid.UUID) error {
 	logger := log.FromContext(ctx).WithValues("TupleChunkId", chunkID)
-	url := fmt.Sprintf("%s/intra-vcp/tuple-chunks/activate/%s", castorClient.Url, chunkID)
+	url := fmt.Sprintf("%s/intra-vcp/tuple-chunks/activate/%s", castorClient.URL, chunkID)
 	logger.Info("activating tuple chunk with castor URL", "URL", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, nil)
 	if err != nil {
@@ -77,7 +77,7 @@ func (castorClient CastorClient) getTelemetry(ctx context.Context) (Telemetry, e
 	req, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
-		fmt.Sprintf("%s/intra-vcp/telemetry", castorClient.Url),
+		fmt.Sprintf("%s/intra-vcp/telemetry", castorClient.URL),
 		nil,
 	)
 	if err != nil {

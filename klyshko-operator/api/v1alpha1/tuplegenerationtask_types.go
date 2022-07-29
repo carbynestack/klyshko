@@ -16,10 +16,10 @@ type TupleGenerationTaskState string
 
 const (
 	TaskLaunching    TupleGenerationTaskState = "Launching"
-	TaskGenerating                            = "Generating"
-	TaskProvisioning                          = "Provisioning"
-	TaskCompleted                             = "Completed"
-	TaskFailed                                = "Failed"
+	TaskGenerating   TupleGenerationTaskState = "Generating"
+	TaskProvisioning TupleGenerationTaskState = "Provisioning"
+	TaskCompleted    TupleGenerationTaskState = "Completed"
+	TaskFailed       TupleGenerationTaskState = "Failed"
 )
 
 func (s TupleGenerationTaskState) IsValid() bool {
