@@ -18,12 +18,12 @@ import (
 	"strconv"
 )
 
-const VCPConfigMapName = "cs-vcp-config"
+const vcpConfigMapName = "cs-vcp-config"
 
 func getVCPConfig(ctx context.Context, client *client.Client, namespace string) (v1.ConfigMap, error) {
 	name := types.NamespacedName{
 		Namespace: namespace,
-		Name:      VCPConfigMapName,
+		Name:      vcpConfigMapName,
 	}
 	cfm := v1.ConfigMap{}
 	err := (*client).Get(ctx, name, &cfm)

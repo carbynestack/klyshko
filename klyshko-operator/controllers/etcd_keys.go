@@ -17,31 +17,40 @@ import (
 
 const rosterKey = "/klyshko/roster"
 
+// Key is a key for data stored in an etcd cluster.
 type Key interface {
 	ToEtcdKey() string
 }
 
+// RosterKey is a Key referencing a set of RosterEntryKey instances. The data referenced by a RosterKey consists of
+// information related to a tuple generation job managed mainly by the TupleGenerationJobReconciler.
 type RosterKey struct {
 	types.NamespacedName
 }
 
+// ToEtcdKey converts RosterKey k to an etcd key.
 func (k RosterKey) ToEtcdKey() string {
 	return fmt.Sprintf("%s/%s/%s", rosterKey, k.Namespace, k.Name)
 }
 
+// String returns a string representation of RosterKey k.
 func (k RosterKey) String() string {
 	return k.ToEtcdKey()
 }
 
+// RosterEntryKey is a Key referencing data that is related to a tuple generation task managed mainly by the
+// TupleGenerationTaskReconciler.
 type RosterEntryKey struct {
 	RosterKey
 	PlayerID uint
 }
 
+// ToEtcdKey converts RosterEntryKey k to an etcd key.
 func (k RosterEntryKey) ToEtcdKey() string {
 	return fmt.Sprintf("%s/%d", k.RosterKey.ToEtcdKey(), k.PlayerID)
 }
 
+// String returns a string representation of RosterEntryKey k.
 func (k RosterEntryKey) String() string {
 	return k.ToEtcdKey()
 }
@@ -62,6 +71,8 @@ func etcdKeyParts(s string) map[string]string {
 	return result
 }
 
+// ParseKey parses string s into a RosterKey or RosterEntryKey. In case s cannot be parsed in any of the those,
+// an error is returned.
 func ParseKey(s string) (Key, error) {
 	parts := etcdKeyParts(s)
 	if parts == nil {
