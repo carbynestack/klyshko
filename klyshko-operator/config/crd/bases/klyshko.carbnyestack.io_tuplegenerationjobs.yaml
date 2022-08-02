@@ -35,6 +35,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: TupleGenerationJob is the Schema for the TupleGenerationJob API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -49,6 +50,7 @@ spec:
           metadata:
             type: object
           spec:
+            description: TupleGenerationJobSpec defines the desired state of a TupleGenerationJob.
             properties:
               count:
                 exclusiveMinimum: true
@@ -75,8 +77,11 @@ spec:
             - type
             type: object
           status:
+            description: TupleGenerationJobStatus defines the observed state of a
+              TupleGenerationJob.
             properties:
               state:
+                description: TupleGenerationJobState encodes the state of a TupleGenerationJob.
                 type: string
             required:
             - state

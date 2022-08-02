@@ -19,6 +19,8 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: TupleGenerationScheduler is the Schema for the TupleGenerationScheduler
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -33,6 +35,8 @@ spec:
           metadata:
             type: object
           spec:
+            description: TupleGenerationSchedulerSpec defines the desired state of
+              a TupleGenerationScheduler.
             properties:
               concurrency:
                 minimum: 0
@@ -46,6 +50,8 @@ spec:
             - threshold
             type: object
           status:
+            description: TupleGenerationSchedulerStatus defines the observed state
+              of a TupleGenerationScheduler.
             type: object
         type: object
     served: true

@@ -29,6 +29,8 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: TupleGenerationTask is the Schema for the TupleGenerationTask
+          API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -43,10 +45,14 @@ spec:
           metadata:
             type: object
           spec:
+            description: TupleGenerationTaskSpec defines the desired state of a TupleGenerationTask.
             type: object
           status:
+            description: TupleGenerationTaskStatus defines the observed state of a
+              TupleGenerationTask.
             properties:
               state:
+                description: TupleGenerationTaskState encodes the state of a TupleGenerationTask.
                 type: string
             required:
             - state
