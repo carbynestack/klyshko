@@ -99,9 +99,9 @@ var _ = Describe("Activating a tuple chunk", func() {
 			)
 		})
 		It("succeeds", func() {
-			chunkId := uuid.New()
+			chunkID := uuid.New()
 			castorClient := NewCastorClient(validCastorURL)
-			err := castorClient.activateTupleChunk(ctx, chunkId)
+			err := castorClient.activateTupleChunk(ctx, chunkID)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -116,18 +116,18 @@ var _ = Describe("Activating a tuple chunk", func() {
 			)
 		})
 		It("fails", func() {
-			chunkId := uuid.New()
+			chunkID := uuid.New()
 			castorClient := NewCastorClient(validCastorURL)
-			err := castorClient.activateTupleChunk(ctx, chunkId)
+			err := castorClient.activateTupleChunk(ctx, chunkID)
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	When("when Castor service is not available", func() {
 		It("fails", func() {
-			chunkId := uuid.New()
+			chunkID := uuid.New()
 			castorClient := NewCastorClient(invalidCastorURL)
-			err := castorClient.activateTupleChunk(ctx, chunkId)
+			err := castorClient.activateTupleChunk(ctx, chunkID)
 			Expect(err).To(HaveOccurred())
 		})
 	})

@@ -12,16 +12,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// TupleGenerationTaskState encodes the state of a TupleGenerationTask.
 type TupleGenerationTaskState string
 
 const (
-	TaskLaunching    TupleGenerationTaskState = "Launching"
-	TaskGenerating   TupleGenerationTaskState = "Generating"
+
+	// TaskLaunching means that the tuple generation process is being initiated.
+	TaskLaunching TupleGenerationTaskState = "Launching"
+
+	// TaskGenerating means that tuples are being generated.
+	TaskGenerating TupleGenerationTaskState = "Generating"
+
+	// TaskProvisioning means that tuples are being uploaded to Castor.
 	TaskProvisioning TupleGenerationTaskState = "Provisioning"
-	TaskCompleted    TupleGenerationTaskState = "Completed"
-	TaskFailed       TupleGenerationTaskState = "Failed"
+
+	// TaskCompleted means that the task has been finished successfully.
+	TaskCompleted TupleGenerationTaskState = "Completed"
+
+	// TaskFailed means that an error occurred while performing the task.
+	TaskFailed TupleGenerationTaskState = "Failed"
 )
 
+// IsValid returns true if state s is among the defined ones and false otherwise.
 func (s TupleGenerationTaskState) IsValid() bool {
 	switch s {
 	case TaskLaunching, TaskGenerating, TaskProvisioning, TaskCompleted, TaskFailed:
@@ -31,14 +43,17 @@ func (s TupleGenerationTaskState) IsValid() bool {
 	}
 }
 
+// TupleGenerationTaskSpec defines the desired state of a TupleGenerationTask.
 type TupleGenerationTaskSpec struct {
 }
 
+// TupleGenerationTaskStatus defines the observed state of a TupleGenerationTask.
 type TupleGenerationTaskStatus struct {
 	State TupleGenerationTaskState `json:"state"`
 }
 
-func ParseFromJSON(data []byte) (*TupleGenerationTaskStatus, error) {
+// Unmarshal parses a JSON serialized TupleGenerationTask.
+func Unmarshal(data []byte) (*TupleGenerationTaskStatus, error) {
 	status := &TupleGenerationTaskStatus{}
 	if err := json.Unmarshal(data, status); err != nil {
 		return status, err
@@ -52,6 +67,7 @@ func ParseFromJSON(data []byte) (*TupleGenerationTaskStatus, error) {
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.state`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
+// TupleGenerationTask is the Schema for the TupleGenerationTask API.
 type TupleGenerationTask struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -62,6 +78,7 @@ type TupleGenerationTask struct {
 
 //+kubebuilder:object:root=true
 
+// TupleGenerationTaskList contains a list of TupleGenerationTasks.
 type TupleGenerationTaskList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// TupleGenerationJobState encodes the state of a TupleGenerationJob.
 type TupleGenerationJobState string
 
 const (
@@ -18,17 +19,16 @@ const (
 	JobPending TupleGenerationJobState = "Pending"
 
 	// JobRunning means all tasks for the job have been spawned but have not terminated yet.
-	JobRunning = "Running"
+	JobRunning TupleGenerationJobState = "Running"
 
 	// JobCompleted means all tasks have completed successfully.
-	JobCompleted = "Completed"
+	JobCompleted TupleGenerationJobState = "Completed"
 
 	// JobFailed means that all tasks for the job have terminated but at least on failed.
-	JobFailed = "Failed"
+	JobFailed TupleGenerationJobState = "Failed"
 )
 
-// IsValid returns true if this state is among the defined ones and false
-// otherwise.
+// IsValid returns true if state s is among the defined ones and false otherwise.
 func (s TupleGenerationJobState) IsValid() bool {
 	switch s {
 	case JobPending, JobRunning, JobCompleted, JobFailed:
@@ -38,10 +38,13 @@ func (s TupleGenerationJobState) IsValid() bool {
 	}
 }
 
+// IsDone returns true if s is among the set of TupleGenerationJobState that describe a job that is done, i.e., is
+// either JobCompleted or JobFailed, and false otherwise.
 func (s TupleGenerationJobState) IsDone() bool {
 	return s == JobCompleted || s == JobFailed
 }
 
+// TupleGenerationJobSpec defines the desired state of a TupleGenerationJob.
 type TupleGenerationJobSpec struct {
 	ID string `json:"id"`
 
@@ -53,6 +56,7 @@ type TupleGenerationJobSpec struct {
 	Count int `json:"count"`
 }
 
+// TupleGenerationJobStatus defines the observed state of a TupleGenerationJob.
 type TupleGenerationJobStatus struct {
 	State TupleGenerationJobState `json:"state"`
 }
@@ -65,6 +69,7 @@ type TupleGenerationJobStatus struct {
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.state`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
+// TupleGenerationJob is the Schema for the TupleGenerationJob API.
 type TupleGenerationJob struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -75,6 +80,7 @@ type TupleGenerationJob struct {
 
 //+kubebuilder:object:root=true
 
+// TupleGenerationJobList contains a list of TupleGenerationJobs.
 type TupleGenerationJobList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

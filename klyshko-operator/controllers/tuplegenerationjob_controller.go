@@ -93,8 +93,8 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("failed to read resource for roster with key %v for task %v: %w", jobKey, req.Name, err)
 	}
 	if resp.Count == 0 {
-		playerId, err := localPlayerID(ctx, &r.Client, req.Namespace)
-		if playerId != 0 {
+		playerID, err := localPlayerID(ctx, &r.Client, req.Namespace)
+		if playerID != 0 {
 			logger.Info("Roster not available, retrying later")
 			return ctrl.Result{}, nil
 		}
@@ -137,9 +137,8 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 		// Error reading resource, requeue
 		return ctrl.Result{}, fmt.Errorf("failed to read task resource for job %v: %w", req.Name, err)
-	} else {
-		logger.Info("Local task exists already", "Task.Name", task.Name)
 	}
+	logger.Info("Local task exists already", "Task.Name", task.Name)
 
 	// Update job status based on owned task statuses; TODO That might not scale well in case we have many jobs
 	tasks := &klyshkov1alpha1.TupleGenerationTaskList{}
@@ -345,7 +344,7 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 		found := &klyshkov1alpha1.TupleGenerationTask{}
 		if err := r.Client.Get(ctx, taskName, found); err == nil {
 			// Update local proxy task status
-			status, err := klyshkov1alpha1.ParseFromJSON(ev.Kv.Value)
+			status, err := klyshkov1alpha1.Unmarshal(ev.Kv.Value)
 			if err != nil {
 				logger.Error(err, "Extracting state from roster entry failed", "Value", string(ev.Kv.Value))
 				return

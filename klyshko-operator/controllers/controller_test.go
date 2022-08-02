@@ -261,10 +261,10 @@ var _ = Describe("Generating tuples", func() {
 			}
 
 			// Ensure that castor activate tuple chunk endpoint has been called on each VCP
-			activationUrl := fmt.Sprintf("PUT http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s", jobs[0].Spec.ID)
+			activationURL := fmt.Sprintf("PUT http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s", jobs[0].Spec.ID)
 			Eventually(func() bool {
 				info := httpmock.GetCallCountInfo()
-				return info[activationUrl] == NumberOfVCPs
+				return info[activationURL] == NumberOfVCPs
 			}, Timeout, PollingInterval).Should(BeTrue())
 
 			// Ensure that resources get deleted.
@@ -304,11 +304,11 @@ var _ = Describe("Generating tuples", func() {
 })
 
 // Ensures that the job with the given identifier eventually assumes the given state.
-func ensureJobState(ctx context.Context, vc *vc, owner *klyshkov1alpha1.TupleGenerationScheduler, jobId uuid.UUID, state klyshkov1alpha1.TupleGenerationJobState) {
+func ensureJobState(ctx context.Context, vc *vc, owner *klyshkov1alpha1.TupleGenerationScheduler, jobID uuid.UUID, state klyshkov1alpha1.TupleGenerationJobState) {
 	for i := 0; i < NumberOfVCPs; i++ {
 		name := client.ObjectKey{
 			Namespace: owner.Namespace,
-			Name:      fmt.Sprintf("%s-%s", owner.Name, jobId),
+			Name:      fmt.Sprintf("%s-%s", owner.Name, jobID),
 		}
 		Eventually(func() bool {
 			job := &klyshkov1alpha1.TupleGenerationJob{}

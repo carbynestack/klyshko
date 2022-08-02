@@ -186,9 +186,9 @@ func (r *TupleGenerationTaskReconciler) SetupWithManager(mgr ctrl.Manager) error
 // identifier is appended with a hyphen to the name.
 func (r *TupleGenerationTaskReconciler) taskKeyFromName(namespace string, name string) (*RosterEntryKey, error) {
 	parts := strings.Split(name, "-")
-	vcpId := parts[len(parts)-1]
+	vcpID := parts[len(parts)-1]
 	jobName := strings.Join(parts[:len(parts)-1], "-")
-	keyStr := rosterKey + "/" + namespace + "/" + jobName + "/" + vcpId
+	keyStr := rosterKey + "/" + namespace + "/" + jobName + "/" + vcpID
 	key, err := ParseKey(keyStr)
 	if err != nil {
 		return nil, fmt.Errorf("can't parse task key from '%s': %w", keyStr, err)
@@ -218,7 +218,7 @@ func (r *TupleGenerationTaskReconciler) getStatus(ctx context.Context, taskKey R
 	if len(resp.Kvs) != 1 {
 		return nil, fmt.Errorf("no status available for roster entry: %v", taskKey)
 	}
-	status, err := klyshkov1alpha1.ParseFromJSON(resp.Kvs[0].Value)
+	status, err := klyshkov1alpha1.Unmarshal(resp.Kvs[0].Value)
 	if err != nil {
 		return nil, fmt.Errorf("parsing status from '%s' failed: %w", string(resp.Kvs[0].Value), err)
 	}

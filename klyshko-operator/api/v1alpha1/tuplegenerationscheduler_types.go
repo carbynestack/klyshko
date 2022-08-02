@@ -11,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// TupleGenerationSchedulerSpec defines the desired state of a TupleGenerationScheduler.
 type TupleGenerationSchedulerSpec struct {
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:ExclusiveMinimum=false
@@ -21,12 +22,14 @@ type TupleGenerationSchedulerSpec struct {
 	Threshold int `json:"threshold"`
 }
 
+// TupleGenerationSchedulerStatus defines the observed state of a TupleGenerationScheduler.
 type TupleGenerationSchedulerStatus struct {
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
+// TupleGenerationScheduler is the Schema for the TupleGenerationScheduler API.
 type TupleGenerationScheduler struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -37,6 +40,7 @@ type TupleGenerationScheduler struct {
 
 //+kubebuilder:object:root=true
 
+// TupleGenerationSchedulerList contains a list of TupleGenerationSchedulers.
 type TupleGenerationSchedulerList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

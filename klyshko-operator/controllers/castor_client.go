@@ -10,7 +10,6 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"io"
@@ -44,7 +43,7 @@ func (castorClient CastorClient) activateTupleChunk(ctx context.Context, chunkID
 		return err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return errors.New(fmt.Sprintf("received response with status code %d", resp.StatusCode))
+		return fmt.Errorf("received response with status code %d", resp.StatusCode)
 	}
 	defer func() {
 		_, err := io.Copy(ioutil.Discard, resp.Body)
@@ -94,7 +93,7 @@ func (castorClient CastorClient) getTelemetry(ctx context.Context) (Telemetry, e
 		return Telemetry{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		err := errors.New(fmt.Sprintf("received response with status code %d", resp.StatusCode))
+		err := fmt.Errorf("received response with status code %d", resp.StatusCode)
 		logger.Error(err, "failed to fetch castor telemetry data")
 		return Telemetry{}, err
 	}
