@@ -18,11 +18,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// Client is a client for the Castor tuple store.
 type Client struct {
 	URL    string
 	client *http.Client
 }
 
+// NewClient creates a Castor client talking to the given URL.
 func NewClient(url string) *Client {
 	return &Client{
 		URL:    url,
@@ -30,10 +32,11 @@ func NewClient(url string) *Client {
 	}
 }
 
+// ActivateTupleChunk activates the tuple chunk with the given chunk identifier stored by the Castor service.
 func (c Client) ActivateTupleChunk(ctx context.Context, chunkID uuid.UUID) error {
 	logger := log.FromContext(ctx).WithValues("TupleChunkId", chunkID)
 	url := fmt.Sprintf("%s/intra-vcp/tuple-chunks/activate/%s", c.URL, chunkID)
-	logger.Info("activating tuple chunk with castor URL", "URL", url)
+	logger.Info("Activating tuple chunk with castor URL", "URL", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, nil)
 	if err != nil {
 		return err
@@ -48,27 +51,30 @@ func (c Client) ActivateTupleChunk(ctx context.Context, chunkID uuid.UUID) error
 	defer func() {
 		_, err := io.Copy(ioutil.Discard, resp.Body)
 		if err != nil {
-			logger.Error(err, "failed to discard response from castor")
+			logger.Error(err, "Failed to discard response from castor")
 		}
 		err = resp.Body.Close()
 		if err != nil {
-			logger.Error(err, "failed to close response from castor")
+			logger.Error(err, "Failed to close response from castor")
 		}
 	}()
-	logger.Info("response from castor", "Status", resp.Status)
+	logger.Info("Response from castor", "Status", resp.Status)
 	return nil
 }
 
+// TupleMetrics stores how many tuples are available for a given tuple type and how fast they are consumed.
 type TupleMetrics struct {
 	Available       int    `json:"available"`
 	ConsumptionRate int    `json:"consumptionRate"`
 	TupleType       string `json:"type"`
 }
 
+// Telemetry stores a TupleMetrics object per tuple type.
 type Telemetry struct {
 	TupleMetrics []TupleMetrics `json:"metrics"`
 }
 
+// GetTelemetry fetches telemetry data from the Castor service.
 func (c Client) GetTelemetry(ctx context.Context) (Telemetry, error) {
 	logger := log.FromContext(ctx)
 
@@ -80,8 +86,7 @@ func (c Client) GetTelemetry(ctx context.Context) (Telemetry, error) {
 		nil,
 	)
 	if err != nil {
-		logger.Error(err, "failed to build request for castor telemetry data")
-		return Telemetry{}, err
+		return Telemetry{}, fmt.Errorf("failed to build request for castor telemetry data")
 	}
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/json")
@@ -89,26 +94,23 @@ func (c Client) GetTelemetry(ctx context.Context) (Telemetry, error) {
 	// Doing the request
 	resp, err := c.client.Do(req)
 	if err != nil {
-		logger.Error(err, "failed to fetch castor telemetry data")
+		logger.Error(err, "Failed to fetch castor telemetry data")
 		return Telemetry{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		err := fmt.Errorf("received response with status code %d", resp.StatusCode)
-		logger.Error(err, "failed to fetch castor telemetry data")
-		return Telemetry{}, err
+		return Telemetry{}, fmt.Errorf("received response with status code %d", resp.StatusCode)
 	}
 
 	// Read, parse, and return telemetry response
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			logger.Error(err, "failed to close response from castor")
+			logger.Error(err, "Failed to close response from castor")
 		}
 	}()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logger.Error(err, "failed to read response body")
-		return Telemetry{}, err
+		return Telemetry{}, fmt.Errorf("failed to read response body")
 	}
 	var response Telemetry
 	err = json.Unmarshal(bodyBytes, &response)
