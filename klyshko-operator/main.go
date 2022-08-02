@@ -9,6 +9,7 @@ package main
 
 import (
 	"flag"
+	"github.com/carbynestack/klyshko/castor"
 	"os"
 	"time"
 
@@ -86,7 +87,7 @@ func main() {
 		setupLog.Error(err, "closing etcd client failed")
 	}()
 
-	castorClient := controllers.NewCastorClient(castorURL)
+	castorClient := castor.NewClient(castorURL)
 
 	if err = controllers.NewTupleGenerationJobReconciler(mgr.GetClient(), mgr.GetScheme(), etcdClient, castorClient).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TupleGenerationJob")

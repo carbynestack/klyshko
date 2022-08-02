@@ -10,6 +10,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/carbynestack/klyshko/castor"
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +32,7 @@ const MinimumTuplesPerJob = 10000
 type TupleGenerationSchedulerReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
-	CastorClient *CastorClient
+	CastorClient *castor.Client
 }
 
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationschedulers,verbs=get;list;watch;create;update;patch;delete
@@ -80,7 +81,7 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 	// 1. Compute available and in generation number of tuples per type
 	// 2. Filter out all above threshold
 	// 3. Sort ascending wrt to sum from step 1
-	telemetry, err := r.CastorClient.getTelemetry(ctx)
+	telemetry, err := r.CastorClient.GetTelemetry(ctx)
 	if err != nil {
 		logger.Error(err, "Fetching telemetry data from Castor failed", "Castor.URL", r.CastorClient.URL)
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, err
@@ -95,7 +96,7 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 		}
 	}
 	logger.Info("With in-flight tuple generation jobs", "Metrics.WithInflight", telemetry.TupleMetrics)
-	var belowThreshold []TupleMetrics
+	var belowThreshold []castor.TupleMetrics
 	for _, m := range telemetry.TupleMetrics {
 		if m.Available < scheduler.Spec.Threshold {
 			belowThreshold = append(belowThreshold, m)

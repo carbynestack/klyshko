@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	klyshkov1alpha1 "github.com/carbynestack/klyshko/api/v1alpha1"
+	"github.com/carbynestack/klyshko/castor"
 	"github.com/google/uuid"
 	"github.com/jarcoal/httpmock"
 	. "github.com/onsi/ginkgo/v2"
@@ -115,7 +116,7 @@ func (vcp vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *clie
 	if err != nil {
 		return err
 	}
-	castorClient := NewCastorClient(castorURL)
+	castorClient := castor.NewClient(castorURL)
 	controllers := []Controller{
 		NewTupleGenerationJobReconciler(
 			k8sManager.GetClient(), k8sManager.GetScheme(), etcdClient, castorClient),
@@ -198,7 +199,7 @@ func setupCastorServiceResponders(numberOfAvailableTuples int) {
 		"=~^http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/.*",
 		httpmock.NewStringResponder(200, ""),
 	)
-	telemetry := Telemetry{TupleMetrics: []TupleMetrics{
+	telemetry := castor.Telemetry{TupleMetrics: []castor.TupleMetrics{
 		{
 			Available:       numberOfAvailableTuples,
 			ConsumptionRate: 0,

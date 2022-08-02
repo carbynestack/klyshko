@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	klyshkov1alpha1 "github.com/carbynestack/klyshko/api/v1alpha1"
+	"github.com/carbynestack/klyshko/castor"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"go.etcd.io/etcd/api/v3/mvccpb"
@@ -33,12 +34,12 @@ type TupleGenerationJobReconciler struct {
 	Scheme          *runtime.Scheme
 	EtcdClient      *clientv3.Client
 	rosterWatcherCh clientv3.WatchChan
-	CastorClient    *CastorClient
+	CastorClient    *castor.Client
 	Logger          logr.Logger
 }
 
 // NewTupleGenerationJobReconciler creates a TupleGenerationJobReconciler.
-func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client, castorClient *CastorClient) *TupleGenerationJobReconciler {
+func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client, castorClient *castor.Client) *TupleGenerationJobReconciler {
 	r := &TupleGenerationJobReconciler{
 		Client:          client,
 		Scheme:          scheme,
@@ -200,7 +201,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("invalid job id encountered '%v': %w", job.Spec.ID, err)
 		}
-		err = r.CastorClient.activateTupleChunk(ctx, tupleChunkID)
+		err = r.CastorClient.ActivateTupleChunk(ctx, tupleChunkID)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("tuple chunk activation failed for job %v: %w", job.Name, err)
 		}

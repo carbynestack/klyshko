@@ -5,7 +5,7 @@ see the NOTICE file and/or the repository https://github.com/carbynestack/klyshk
 SPDX-License-Identifier: Apache-2.0
 */
 
-package controllers
+package castor
 
 import (
 	"context"
@@ -48,8 +48,8 @@ var _ = Describe("Fetching telemetry", func() {
 			)
 		})
 		It("succeeds", func() {
-			castorClient := NewCastorClient(validCastorURL)
-			telemetry, err := castorClient.getTelemetry(ctx)
+			castorClient := NewClient(validCastorURL)
+			telemetry, err := castorClient.GetTelemetry(ctx)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(telemetry).To(Equal(expectedTelemetry))
 		})
@@ -65,16 +65,16 @@ var _ = Describe("Fetching telemetry", func() {
 			)
 		})
 		It("fails", func() {
-			castorClient := NewCastorClient(validCastorURL)
-			_, err := castorClient.getTelemetry(ctx)
+			castorClient := NewClient(validCastorURL)
+			_, err := castorClient.GetTelemetry(ctx)
 			Expect(err).To(HaveOccurred())
 		})
 	})
 
 	When("when Castor service is not available", func() {
 		It("fails", func() {
-			castorClient := NewCastorClient(invalidCastorURL)
-			_, err := castorClient.getTelemetry(ctx)
+			castorClient := NewClient(invalidCastorURL)
+			_, err := castorClient.GetTelemetry(ctx)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -100,8 +100,8 @@ var _ = Describe("Activating a tuple chunk", func() {
 		})
 		It("succeeds", func() {
 			chunkID := uuid.New()
-			castorClient := NewCastorClient(validCastorURL)
-			err := castorClient.activateTupleChunk(ctx, chunkID)
+			castorClient := NewClient(validCastorURL)
+			err := castorClient.ActivateTupleChunk(ctx, chunkID)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -117,8 +117,8 @@ var _ = Describe("Activating a tuple chunk", func() {
 		})
 		It("fails", func() {
 			chunkID := uuid.New()
-			castorClient := NewCastorClient(validCastorURL)
-			err := castorClient.activateTupleChunk(ctx, chunkID)
+			castorClient := NewClient(validCastorURL)
+			err := castorClient.ActivateTupleChunk(ctx, chunkID)
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -126,8 +126,8 @@ var _ = Describe("Activating a tuple chunk", func() {
 	When("when Castor service is not available", func() {
 		It("fails", func() {
 			chunkID := uuid.New()
-			castorClient := NewCastorClient(invalidCastorURL)
-			err := castorClient.activateTupleChunk(ctx, chunkID)
+			castorClient := NewClient(invalidCastorURL)
+			err := castorClient.ActivateTupleChunk(ctx, chunkID)
 			Expect(err).To(HaveOccurred())
 		})
 	})

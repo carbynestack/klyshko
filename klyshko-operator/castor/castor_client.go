@@ -5,7 +5,7 @@ see the NOTICE file and/or the repository https://github.com/carbynestack/klyshk
 SPDX-License-Identifier: Apache-2.0
 */
 
-package controllers
+package castor
 
 import (
 	"context"
@@ -18,27 +18,27 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type CastorClient struct {
+type Client struct {
 	URL    string
 	client *http.Client
 }
 
-func NewCastorClient(url string) *CastorClient {
-	return &CastorClient{
+func NewClient(url string) *Client {
+	return &Client{
 		URL:    url,
 		client: &http.Client{},
 	}
 }
 
-func (castorClient CastorClient) activateTupleChunk(ctx context.Context, chunkID uuid.UUID) error {
+func (c Client) ActivateTupleChunk(ctx context.Context, chunkID uuid.UUID) error {
 	logger := log.FromContext(ctx).WithValues("TupleChunkId", chunkID)
-	url := fmt.Sprintf("%s/intra-vcp/tuple-chunks/activate/%s", castorClient.URL, chunkID)
+	url := fmt.Sprintf("%s/intra-vcp/tuple-chunks/activate/%s", c.URL, chunkID)
 	logger.Info("activating tuple chunk with castor URL", "URL", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := castorClient.client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -69,14 +69,14 @@ type Telemetry struct {
 	TupleMetrics []TupleMetrics `json:"metrics"`
 }
 
-func (castorClient CastorClient) getTelemetry(ctx context.Context) (Telemetry, error) {
+func (c Client) GetTelemetry(ctx context.Context) (Telemetry, error) {
 	logger := log.FromContext(ctx)
 
 	// Building the request
 	req, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
-		fmt.Sprintf("%s/intra-vcp/telemetry", castorClient.URL),
+		fmt.Sprintf("%s/intra-vcp/telemetry", c.URL),
 		nil,
 	)
 	if err != nil {
@@ -87,7 +87,7 @@ func (castorClient CastorClient) getTelemetry(ctx context.Context) (Telemetry, e
 	req.Header.Add("Content-Type", "application/json")
 
 	// Doing the request
-	resp, err := castorClient.client.Do(req)
+	resp, err := c.client.Do(req)
 	if err != nil {
 		logger.Error(err, "failed to fetch castor telemetry data")
 		return Telemetry{}, err
