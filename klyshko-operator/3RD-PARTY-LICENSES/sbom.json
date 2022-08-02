@@ -36,15 +36,7 @@
     "license": "Apache-2.0"
   },
   {
-    "project": "vendor/github.com/onsi/ginkgo",
-    "license": "MIT"
-  },
-  {
-    "project": "vendor/github.com/onsi/ginkgo/reporters/stenographer/support/go-isatty",
-    "license": "MIT"
-  },
-  {
-    "project": "vendor/github.com/onsi/ginkgo/reporters/stenographer/support/go-colorable",
+    "project": "vendor/github.com/onsi/ginkgo/v2",
     "license": "MIT"
   },
   {
@@ -76,14 +68,6 @@
     "license": "Apache-2.0"
   },
   {
-    "project": "vendor/github.com/nxadm/tail",
-    "license": "MIT"
-  },
-  {
-    "project": "vendor/github.com/nxadm/tail/ratelimiter",
-    "license": "MIT"
-  },
-  {
     "project": "vendor/github.com/json-iterator/go",
     "license": "MIT"
   },
@@ -110,6 +94,10 @@
   {
     "project": "vendor/github.com/imdario/mergo",
     "license": "BSD-3-Clause"
+  },
+  {
+    "project": "vendor/github.com/jarcoal/httpmock",
+    "license": "MIT"
   },
   {
     "project": "vendor/github.com/golang/groupcache",
@@ -282,10 +270,6 @@
   {
     "project": "vendor/gopkg.in/yaml.v3",
     "license": "Apache-2.0"
-  },
-  {
-    "project": "vendor/gopkg.in/tomb.v1",
-    "license": "BSD-3-Clause"
   },
   {
     "project": "vendor/gopkg.in/inf.v0",
