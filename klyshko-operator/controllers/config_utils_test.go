@@ -30,6 +30,15 @@ var _ = Context("Using config utils", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	usingConfigMap := func(ctx context.Context, data map[string]string) {
+		BeforeEach(func() {
+			vcp.createVCPConfig(ctx, "cs-vcp-config", "default", data)
+		})
+		AfterEach(func() {
+			vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+		})
+	}
+
 	Describe("getting the local player Id", func() {
 
 		When("when no configuration has been provided", func() {
@@ -40,28 +49,29 @@ var _ = Context("Using config utils", func() {
 		})
 
 		When("when valid configuration has been provided", func() {
-			BeforeEach(func() {
-				vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-					"playerCount": "2",
-					"playerId":    "0",
-				})
-			})
-			AfterEach(func() {
-				vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+			usingConfigMap(ctx, map[string]string{
+				"playerCount": "2",
+				"playerId":    "1",
 			})
 			It("gives the right local player ID", func() {
-				Expect(localPlayerID(ctx, &vcp.k8sClient, "default")).To(Equal(uint(0)))
+				Expect(localPlayerID(ctx, &vcp.k8sClient, "default")).To(Equal(uint(1)))
 			})
 		})
 
 		When("when the playerId K/V pair is missing", func() {
-			BeforeEach(func() {
-				vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-					"playerCount": "2",
-				})
+			usingConfigMap(ctx, map[string]string{
+				"playerCount": "2",
 			})
-			AfterEach(func() {
-				vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+			It("fails", func() {
+				_, err := localPlayerID(ctx, &vcp.k8sClient, "default")
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("when the playerId is negative", func() {
+			usingConfigMap(ctx, map[string]string{
+				"playerCount": "2",
+				"playerId":    "-1",
 			})
 			It("fails", func() {
 				_, err := localPlayerID(ctx, &vcp.k8sClient, "default")
@@ -70,14 +80,9 @@ var _ = Context("Using config utils", func() {
 		})
 
 		When("when the playerId is out of range", func() {
-			BeforeEach(func() {
-				vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-					"playerCount": "2",
-					"playerId":    "-1",
-				})
-			})
-			AfterEach(func() {
-				vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+			usingConfigMap(ctx, map[string]string{
+				"playerCount": "2",
+				"playerId":    "2",
 			})
 			It("fails", func() {
 				_, err := localPlayerID(ctx, &vcp.k8sClient, "default")
@@ -86,14 +91,9 @@ var _ = Context("Using config utils", func() {
 		})
 
 		When("when the playerId can't be parsed", func() {
-			BeforeEach(func() {
-				vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-					"playerCount": "2",
-					"playerId":    "a1b2",
-				})
-			})
-			AfterEach(func() {
-				vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+			usingConfigMap(ctx, map[string]string{
+				"playerCount": "2",
+				"playerId":    "a1b2",
 			})
 			It("fails", func() {
 				_, err := localPlayerID(ctx, &vcp.k8sClient, "default")
@@ -112,14 +112,9 @@ var _ = Context("Using config utils", func() {
 		})
 
 		When("when valid configuration has been provided", func() {
-			BeforeEach(func() {
-				vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-					"playerCount": "2",
-					"playerId":    "0",
-				})
-			})
-			AfterEach(func() {
-				vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+			usingConfigMap(ctx, map[string]string{
+				"playerCount": "2",
+				"playerId":    "0",
 			})
 			It("gives the right number of Players", func() {
 				Expect(numberOfVCPs(ctx, &vcp.k8sClient, "default")).To(Equal(uint(2)))
@@ -127,13 +122,8 @@ var _ = Context("Using config utils", func() {
 		})
 
 		When("when the playerCount K/V pair is missing", func() {
-			BeforeEach(func() {
-				vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-					"playerId": "0",
-				})
-			})
-			AfterEach(func() {
-				vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+			usingConfigMap(ctx, map[string]string{
+				"playerId": "0",
 			})
 			It("fails", func() {
 				_, err := numberOfVCPs(ctx, &vcp.k8sClient, "default")
@@ -141,15 +131,10 @@ var _ = Context("Using config utils", func() {
 			})
 		})
 
-		When("when the playerCount is out of range", func() {
-			BeforeEach(func() {
-				vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-					"playerCount": "-1",
-					"playerId":    "0",
-				})
-			})
-			AfterEach(func() {
-				vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+		When("when the playerCount is negative", func() {
+			usingConfigMap(ctx, map[string]string{
+				"playerCount": "-1",
+				"playerId":    "0",
 			})
 			It("fails", func() {
 				_, err := numberOfVCPs(ctx, &vcp.k8sClient, "default")
@@ -157,15 +142,10 @@ var _ = Context("Using config utils", func() {
 			})
 		})
 
-		When("when the playerId can't be parsed", func() {
-			BeforeEach(func() {
-				vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-					"playerCount": "a1b2",
-					"playerId":    "0",
-				})
-			})
-			AfterEach(func() {
-				vcp.deleteVCPConfig(ctx, "cs-vcp-config", "default")
+		When("when playerCount can't be parsed", func() {
+			usingConfigMap(ctx, map[string]string{
+				"playerCount": "a1b2",
+				"playerId":    "0",
 			})
 			It("fails", func() {
 				_, err := numberOfVCPs(ctx, &vcp.k8sClient, "default")

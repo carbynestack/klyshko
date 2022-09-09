@@ -36,7 +36,7 @@ var _ = When("Parsing a key", func() {
 		})
 	})
 
-	Context("from a roster entry key with non-integer playerId", func() {
+	Context("from a string that is not a valid roster entry key", func() {
 		It("should fail", func() {
 			malformedKey := rosterEntryKey.ToEtcdKey() + "m"
 			_, err := ParseKey(malformedKey)
@@ -44,7 +44,7 @@ var _ = When("Parsing a key", func() {
 		})
 	})
 
-	Context("from a roster entry key with non-unit32 playerId", func() {
+	Context("from a roster entry key with non-uint32 playerId", func() {
 		It("should fail", func() {
 			malformedKey := rosterEntryKey.ToEtcdKey() + fmt.Sprint(math.MaxUint32*2)
 			_, err := ParseKey(malformedKey)
@@ -56,6 +56,14 @@ var _ = When("Parsing a key", func() {
 		It("should fail", func() {
 			malformedKey := rosterEntryKey.ToEtcdKey() + fmt.Sprint(math.MaxUint64/2)
 			_, err := ParseKey(malformedKey)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Context("from a wrongly prefixed roster entry key", func() {
+		It("should fail", func() {
+			wronglyPrefixedKey := "/klyshko/toaster/foo/bar"
+			_, err := ParseKey(wronglyPrefixedKey)
 			Expect(err).To(HaveOccurred())
 		})
 	})

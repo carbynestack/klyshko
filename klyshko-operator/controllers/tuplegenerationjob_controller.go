@@ -182,12 +182,12 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 		return false
 	}
-	nbrOfVCPs, err := numberOfVCPs(ctx, &r.Client, req.Namespace)
+	numberOfVCPs, err := numberOfVCPs(ctx, &r.Client, req.Namespace)
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, fmt.Errorf("can't read playerCount from VCP configuration: %w", err)
 	}
 	var state klyshkov1alpha1.TupleGenerationJobState
-	if uint(len(ownedBy)) < nbrOfVCPs {
+	if uint(len(ownedBy)) < numberOfVCPs {
 		state = klyshkov1alpha1.JobPending
 	} else if !allTerminated(ownedBy) {
 		state = klyshkov1alpha1.JobRunning
@@ -282,6 +282,8 @@ func (r *TupleGenerationJobReconciler) handleWatchEvent(ctx context.Context, ev 
 		r.handleRemoteTaskUpdate(ctx, k, ev)
 	case RosterKey:
 		r.handleJobUpdate(ctx, k, ev)
+	default:
+		panic(fmt.Sprintf("Unexpected key type encountered: %v", key))
 	}
 }
 
@@ -320,6 +322,8 @@ func (r *TupleGenerationJobReconciler) handleJobUpdate(ctx context.Context, key 
 			return
 		}
 		logger.Info("Job deleted")
+	default:
+		panic(fmt.Sprintf("Unexpected etcd event encounter: %v", ev))
 	}
 }
 

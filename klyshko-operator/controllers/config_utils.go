@@ -33,44 +33,53 @@ func getVCPConfig(ctx context.Context, client *client.Client, namespace string) 
 	return cfm, nil
 }
 
-func localPlayerID(ctx context.Context, client *client.Client, namespace string) (uint, error) {
+func parseVCPConfig(ctx context.Context, client *client.Client, namespace string) (uint, uint, error) {
 	cfm, err := getVCPConfig(ctx, client, namespace)
 	if err != nil {
-		return 0, err
-	}
-
-	// Extract playerId
-	playerIDStr, ok := cfm.Data["playerId"]
-	if !ok {
-		return 0, errors.New("invalid VCP configuration - missing playerId")
-	}
-	playerID, err := strconv.Atoi(playerIDStr)
-	if err != nil {
-		return 0, err
-	}
-	if playerID < 0 || playerID > math.MaxUint32 {
-		return 0, fmt.Errorf("invalid playerId '%d'- must be in range [0,%d]", playerID, math.MaxUint32)
-	}
-	return uint(playerID), nil
-}
-
-func numberOfVCPs(ctx context.Context, client *client.Client, namespace string) (uint, error) {
-	cfm, err := getVCPConfig(ctx, client, namespace)
-	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	// Extract playerCount
 	playerCountStr, ok := cfm.Data["playerCount"]
 	if !ok {
-		return 0, errors.New("invalid VCP configuration - missing playerCount")
+		return 0, 0, errors.New("invalid VCP configuration - missing playerCount")
 	}
 	playerCount, err := strconv.Atoi(playerCountStr)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 	if playerCount < 0 || playerCount > math.MaxUint32 {
-		return 0, fmt.Errorf("invalid playerCount '%d'- must be in range [0,%d]", playerCount, math.MaxUint32)
+		return 0, 0, fmt.Errorf("invalid playerCount '%d' - must be in range [0,%d]", playerCount, math.MaxUint32)
 	}
-	return uint(playerCount), nil
+
+	// Extract playerId
+	playerIDStr, ok := cfm.Data["playerId"]
+	if !ok {
+		return 0, 0, errors.New("invalid VCP configuration - missing playerId")
+	}
+	playerID, err := strconv.Atoi(playerIDStr)
+	if err != nil {
+		return 0, 0, err
+	}
+	if playerID < 0 || playerID >= playerCount {
+		return 0, 0, fmt.Errorf("invalid playerId '%d' - must be in range [0,%d]", playerID, playerCount)
+	}
+
+	return uint(playerID), uint(playerCount), nil
+}
+
+func localPlayerID(ctx context.Context, client *client.Client, namespace string) (uint, error) {
+	playerID, _, err := parseVCPConfig(ctx, client, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return playerID, nil
+}
+
+func numberOfVCPs(ctx context.Context, client *client.Client, namespace string) (uint, error) {
+	_, playerCount, err := parseVCPConfig(ctx, client, namespace)
+	if err != nil {
+		return 0, err
+	}
+	return playerCount, nil
 }
