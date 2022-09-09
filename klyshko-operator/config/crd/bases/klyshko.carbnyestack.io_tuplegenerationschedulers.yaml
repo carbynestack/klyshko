@@ -45,9 +45,15 @@ spec:
                 exclusiveMinimum: true
                 minimum: 0
                 type: integer
+              ttlSecondsAfterFinished:
+                default: 600
+                exclusiveMinimum: true
+                minimum: 0
+                type: integer
             required:
             - concurrency
             - threshold
+            - ttlSecondsAfterFinished
             type: object
           status:
             description: TupleGenerationSchedulerStatus defines the observed state

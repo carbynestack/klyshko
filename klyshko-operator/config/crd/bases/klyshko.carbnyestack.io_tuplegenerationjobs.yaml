@@ -80,10 +80,14 @@ spec:
             description: TupleGenerationJobStatus defines the observed state of a
               TupleGenerationJob.
             properties:
+              lastStateTransitionTime:
+                format: date-time
+                type: string
               state:
                 description: TupleGenerationJobState encodes the state of a TupleGenerationJob.
                 type: string
             required:
+            - lastStateTransitionTime
             - state
             type: object
         type: object

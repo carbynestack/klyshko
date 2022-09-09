@@ -58,7 +58,8 @@ type TupleGenerationJobSpec struct {
 
 // TupleGenerationJobStatus defines the observed state of a TupleGenerationJob.
 type TupleGenerationJobStatus struct {
-	State TupleGenerationJobState `json:"state"`
+	State                   TupleGenerationJobState `json:"state"`
+	LastStateTransitionTime metav1.Time             `json:"lastStateTransitionTime"`
 }
 
 //+kubebuilder:object:root=true

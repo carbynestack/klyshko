@@ -37,7 +37,7 @@ import (
 )
 
 const NumberOfVCPs = 2
-const Timeout = 10 * time.Second
+const Timeout = 30 * time.Second
 const PollingInterval = 1 * time.Second
 const SchedulerNamespace = "default"
 const SchedulerName = "test-scheduler"
@@ -55,7 +55,7 @@ func setupVCP() (*vcp, error) {
 	env.testEnv = &envtest.Environment{
 		ErrorIfCRDPathMissing:    true,
 		CRDDirectoryPaths:        []string{filepath.Join("..", "config", "crd", "bases")},
-		AttachControlPlaneOutput: true,
+		AttachControlPlaneOutput: false,
 	}
 	var err error
 	env.cfg, err = env.testEnv.Start()
@@ -70,11 +70,11 @@ func setupVCP() (*vcp, error) {
 	return &env, err
 }
 
-func (vcp vcp) tearDownVCP() error {
+func (vcp *vcp) tearDownVCP() error {
 	return vcp.testEnv.Stop()
 }
 
-func (vcp vcp) createVCPConfig(ctx context.Context, name string, namespace string, data map[string]string) {
+func (vcp *vcp) createVCPConfig(ctx context.Context, name string, namespace string, data map[string]string) {
 	vcpConfig := v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -88,7 +88,7 @@ func (vcp vcp) createVCPConfig(ctx context.Context, name string, namespace strin
 	}
 }
 
-func (vcp vcp) deleteVCPConfig(ctx context.Context, name string, namespace string) {
+func (vcp *vcp) deleteVCPConfig(ctx context.Context, name string, namespace string) {
 	vcpConfig := &v1.ConfigMap{}
 	err := vcp.k8sClient.Get(ctx, client.ObjectKey{
 		Name:      name,
@@ -107,7 +107,7 @@ type Controller interface {
 	SetupWithManager(manager.Manager) error
 }
 
-func (vcp vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *clientv3.Client, castorURL string) error {
+func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *clientv3.Client, castorURL string) error {
 	k8sManager, err := ctrl.NewManager(vcp.cfg, ctrl.Options{
 		Scheme:             scheme.Scheme,
 		MetricsBindAddress: "0",                                             // Avoid colliding metrics servers by disabling
@@ -125,11 +125,13 @@ func (vcp vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *clie
 			Scheme:     k8sManager.GetScheme(),
 			EtcdClient: etcdClient,
 		},
-		&TupleGenerationSchedulerReconciler{
+	}
+	if vcpID == 0 {
+		controllers = append(controllers, &TupleGenerationSchedulerReconciler{
 			Client:       k8sManager.GetClient(),
 			Scheme:       k8sManager.GetScheme(),
 			CastorClient: castorClient,
-		},
+		})
 	}
 	for _, controller := range controllers {
 		err := controller.SetupWithManager(k8sManager)
@@ -160,7 +162,7 @@ func setupVC(ctx context.Context, numberOfVCPs int) (*vc, error) {
 
 		// Create the VCP configuration
 		vcp.createVCPConfig(ctx, "cs-vcp-config", "default", map[string]string{
-			"playerCount": strconv.Itoa(1),
+			"playerCount": strconv.Itoa(NumberOfVCPs),
 			"playerId":    strconv.Itoa(i),
 		})
 
@@ -184,7 +186,7 @@ func setupVC(ctx context.Context, numberOfVCPs int) (*vc, error) {
 
 func (vc *vc) teardown() error {
 	for _, vcp := range vc.vcps {
-		err := vcp.testEnv.Stop()
+		err := vcp.tearDownVCP()
 		if err != nil {
 			return err
 		}
@@ -216,90 +218,131 @@ func setupCastorServiceResponders(numberOfAvailableTuples int) {
 }
 
 var _ = Describe("Generating tuples", func() {
-	ctx, cancel := context.WithCancel(context.TODO())
-	var vc *vc
-
-	BeforeEach(func() {
-		httpmock.Activate()
-		setupCastorServiceResponders(0)
-		var err error
-		vc, err = setupVC(ctx, NumberOfVCPs)
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	AfterEach(func() {
-		cancel()
-		err := vc.teardown()
-		Expect(err).NotTo(HaveOccurred())
-		httpmock.DeactivateAndReset()
-	})
 
 	When("a scheduler is deployed", func() {
-		It("succeeds", func() {
-			scheduler := createScheduler(ctx, vc)
-			jobs := ensureJobCreatedOnEachVcp(ctx, vc, scheduler)
+
+		var (
+			ctx                context.Context
+			cancel             context.CancelFunc
+			vc                 *vc
+			scheduler          *klyshkov1alpha1.TupleGenerationScheduler
+			jobs               []klyshkov1alpha1.TupleGenerationJob
+			localTasksByVCP    []klyshkov1alpha1.TupleGenerationTask
+			generatorPodsByVCP []v1.Pod
+		)
+
+		BeforeEach(func() {
+			ctx, cancel = context.WithCancel(context.TODO())
+			httpmock.Activate()
+			setupCastorServiceResponders(0)
+			var err error
+			vc, err = setupVC(ctx, NumberOfVCPs)
+			Expect(err).NotTo(HaveOccurred())
+
+			scheduler = createScheduler(ctx, vc)
+			jobs = ensureJobCreatedOnEachVcp(ctx, vc, scheduler)
 
 			// Make Castor mock respond from here on with large number of available tuples, to ensure that no other
 			// jobs are created
 			setupCastorServiceResponders(math.MaxInt32)
 
-			localTasksByVCP := ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs)
-			generatorPodsByVCP := ensureGeneratorPodsCreatedOnEachVcp(ctx, vc, localTasksByVCP)
+			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs)
+			generatorPodsByVCP = ensureGeneratorPodsCreatedOnEachVcp(ctx, vc, localTasksByVCP)
 			ensureJobState(ctx, vc, scheduler, uuid.MustParse(jobs[0].Spec.ID), klyshkov1alpha1.JobRunning)
+		})
 
-			// Update generator pods to be in PodSucceed state
-			for i, pod := range generatorPodsByVCP {
-				pod.Status.Phase = v1.PodSucceeded
-				Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
-			}
+		AfterEach(func() {
+			cancel()
+			err := vc.teardown()
+			Expect(err).NotTo(HaveOccurred())
+			httpmock.DeactivateAndReset()
+		})
 
-			provisionerPodsByVCP := ensureProvisionerPodsCreatedOnEachVcp(ctx, vc, jobs, localTasksByVCP)
-
-			// Update provisioner pods to be in PodSucceed state
-			for i, pod := range provisionerPodsByVCP {
-				pod.Status.Phase = v1.PodSucceeded
-				Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
-			}
-
-			// Ensure that castor activate tuple chunk endpoint has been called on each VCP
-			activationURL := fmt.Sprintf("PUT http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s", jobs[0].Spec.ID)
-			Eventually(func() bool {
-				info := httpmock.GetCallCountInfo()
-				return info[activationURL] == NumberOfVCPs
-			}, Timeout, PollingInterval).Should(BeTrue())
-
-			// Ensure that resources get deleted.
-			// As of https://book-v2.book.kubebuilder.io/reference/envtest.html#testing-considerations garbage
-			// collection does not work in envtest. Hence, we can only check that the jobs get deleted and ensure that
-			// owner references are set up correctly for all our resources (see respective ensure... methods below).
-			for i := 0; i < NumberOfVCPs; i++ {
-				key := client.ObjectKey{
-					Namespace: jobs[i].GetNamespace(),
-					Name:      jobs[i].GetName(),
+		Context("and the generator pod fails", func() {
+			It("fails", func() {
+				// Update generator pods to be in PodFailed state
+				for i, pod := range generatorPodsByVCP {
+					pod.Status.Phase = v1.PodFailed
+					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
 				}
-				Eventually(func() bool {
-					return apierrors.IsNotFound(vc.vcps[i].k8sClient.Get(ctx, key, &jobs[i]))
-				}, Timeout, PollingInterval).Should(BeTrue())
-			}
+				ensureJobState(ctx, vc, scheduler, uuid.MustParse(jobs[0].Spec.ID), klyshkov1alpha1.JobFailed)
+			})
+		})
 
-			// Ensure that proxy tasks get deleted on all VCPs eventually after local tasks are deleted.
-			for i := 0; i < NumberOfVCPs; i++ {
-				Expect(vc.vcps[i].k8sClient.Delete(ctx, &localTasksByVCP[i])).Should(Succeed())
-				for j := 0; j < NumberOfVCPs; j++ {
-					if i == j {
-						continue
-					}
+		Context("and the provisioner pod fails", func() {
+			It("fails", func() {
+				// Update generator pods to be in PodSucceed state
+				for i, pod := range generatorPodsByVCP {
+					pod.Status.Phase = v1.PodSucceeded
+					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
+
+				provisionerPodsByVCP := ensureProvisionerPodsCreatedOnEachVcp(ctx, vc, jobs, localTasksByVCP)
+
+				// Update provisioner pods to be in PodFailed state
+				for i, pod := range provisionerPodsByVCP {
+					pod.Status.Phase = v1.PodFailed
+					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
+				ensureJobState(ctx, vc, scheduler, uuid.MustParse(jobs[0].Spec.ID), klyshkov1alpha1.JobFailed)
+			})
+		})
+
+		Context("the generator pod succeeds", func() {
+			It("succeeds", func() {
+				// Update generator pods to be in PodSucceed state
+				for i, pod := range generatorPodsByVCP {
+					pod.Status.Phase = v1.PodSucceeded
+					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
+
+				provisionerPodsByVCP := ensureProvisionerPodsCreatedOnEachVcp(ctx, vc, jobs, localTasksByVCP)
+
+				// Update provisioner pods to be in PodSucceed state
+				for i, pod := range provisionerPodsByVCP {
+					pod.Status.Phase = v1.PodSucceeded
+					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
+
+				// Ensure that castor activate tuple chunk endpoint has been called on each VCP
+				activationURL := fmt.Sprintf("PUT http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s", jobs[0].Spec.ID)
+				Eventually(func() bool {
+					info := httpmock.GetCallCountInfo()
+					return info[activationURL] == NumberOfVCPs
+				}, Timeout, PollingInterval).Should(BeTrue())
+
+				// Ensure that resources get deleted.
+				// As of https://book-v2.book.kubebuilder.io/reference/envtest.html#testing-considerations garbage
+				// collection does not work in envtest. Hence, we can only check that the jobs get deleted and ensure that
+				// owner references are set up correctly for all our resources (see respective ensure... methods below).
+				for i := 0; i < NumberOfVCPs; i++ {
 					key := client.ObjectKey{
-						Namespace: jobs[j].GetNamespace(),
-						Name:      fmt.Sprintf("%s-%d", jobs[j].GetName(), i),
+						Namespace: jobs[i].GetNamespace(),
+						Name:      jobs[i].GetName(),
 					}
-					proxyTask := &klyshkov1alpha1.TupleGenerationTask{}
 					Eventually(func() bool {
-						return apierrors.IsNotFound(vc.vcps[j].k8sClient.Get(ctx, key, proxyTask))
+						return apierrors.IsNotFound(vc.vcps[i].k8sClient.Get(ctx, key, &jobs[i]))
 					}, Timeout, PollingInterval).Should(BeTrue())
 				}
-			}
 
+				// Ensure that proxy tasks get deleted on all VCPs eventually after local tasks are deleted.
+				for i := 0; i < NumberOfVCPs; i++ {
+					Expect(vc.vcps[i].k8sClient.Delete(ctx, &localTasksByVCP[i])).Should(Succeed())
+					for j := 0; j < NumberOfVCPs; j++ {
+						if i == j {
+							continue
+						}
+						key := client.ObjectKey{
+							Namespace: jobs[j].GetNamespace(),
+							Name:      fmt.Sprintf("%s-%d", jobs[j].GetName(), i),
+						}
+						proxyTask := &klyshkov1alpha1.TupleGenerationTask{}
+						Eventually(func() bool {
+							return apierrors.IsNotFound(vc.vcps[j].k8sClient.Get(ctx, key, proxyTask))
+						}, Timeout, PollingInterval).Should(BeTrue())
+					}
+				}
+			})
 		})
 	})
 })
@@ -451,8 +494,9 @@ func createScheduler(ctx context.Context, vc *vc) *klyshkov1alpha1.TupleGenerati
 			Namespace: SchedulerNamespace,
 		},
 		Spec: klyshkov1alpha1.TupleGenerationSchedulerSpec{
-			Concurrency: SchedulerConcurrency,
-			Threshold:   SchedulerTupleThreshold,
+			Concurrency:             SchedulerConcurrency,
+			Threshold:               SchedulerTupleThreshold,
+			TTLSecondsAfterFinished: 5,
 		},
 	}
 	Expect(vc.vcps[0].k8sClient.Create(ctx, scheduler)).Should(Succeed())

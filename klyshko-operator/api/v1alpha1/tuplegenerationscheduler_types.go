@@ -20,6 +20,11 @@ type TupleGenerationSchedulerSpec struct {
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:ExclusiveMinimum=true
 	Threshold int `json:"threshold"`
+
+	//+kubebuilder:default=600
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:ExclusiveMinimum=true
+	TTLSecondsAfterFinished int `json:"ttlSecondsAfterFinished"`
 }
 
 // TupleGenerationSchedulerStatus defines the observed state of a TupleGenerationScheduler.

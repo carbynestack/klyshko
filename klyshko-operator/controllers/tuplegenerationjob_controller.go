@@ -209,6 +209,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if state.IsValid() && state != job.Status.State {
 		logger.Info("State update", "from", job.Status.State, "to", state)
 		job.Status.State = state
+		job.Status.LastStateTransitionTime = metav1.Now()
 		err = r.Status().Update(ctx, job)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("status update failed for job %v: %w", job.Name, err)
