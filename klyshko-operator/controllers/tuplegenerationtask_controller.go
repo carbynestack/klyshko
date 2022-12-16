@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/carbynestack/klyshko/logging"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,7 +46,7 @@ type TupleGenerationTaskReconciler struct {
 // bring the actual state closer to the desired one.
 func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx).WithValues("Task.Name", req.Name)
-	logger.Info("Reconciling tuple generation tasks")
+	logger.V(logging.DEBUG).Info("Reconciling tuple generation tasks")
 
 	taskKey, err := r.taskKeyFromName(req.Namespace, req.Name)
 	if err != nil {
@@ -71,13 +72,13 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to delete roster entry for task %v: %w", req.Name, err)
 			}
-			logger.Info("Roster entry deleted")
+			logger.V(logging.DEBUG).Info("Roster entry deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, fmt.Errorf("failed to read resource for task %v: %w", req.Name, err)
 	}
-	logger.Info("Task exists already")
+	logger.V(logging.TRACE).Info("Task exists already")
 
 	// Create roster entry if not existing
 	resp, err := r.EtcdClient.Get(ctx, taskKey.ToEtcdKey())
@@ -90,9 +91,9 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create roster entry for task %v: %w", req.Name, err)
 		}
-		logger.Info("Roster entry created")
+		logger.V(logging.DEBUG).Info("Roster entry created")
 	} else {
-		logger.Info("Roster entry exists already")
+		logger.V(logging.TRACE).Info("Roster entry exists already")
 	}
 	status, err := r.getStatus(ctx, *taskKey)
 	if err != nil {
@@ -170,7 +171,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 	}
 
-	logger.Info("Desired state reached")
+	logger.V(logging.DEBUG).Info("Desired state reached")
 	return ctrl.Result{}, nil
 }
 
@@ -244,7 +245,7 @@ func (r *TupleGenerationTaskReconciler) setStatus(ctx context.Context, taskKey R
 // setState updates the given status object with the given state and writes the status to etcd.
 func (r *TupleGenerationTaskReconciler) setState(ctx context.Context, taskKey RosterEntryKey, status *klyshkov1alpha1.TupleGenerationTaskStatus, state klyshkov1alpha1.TupleGenerationTaskState) error {
 	logger := log.FromContext(ctx).WithValues("Task.Key", taskKey)
-	logger.Info("Task transitioning into new state", "from", status.State, "to", state)
+	logger.V(logging.DEBUG).Info("Task transitioning into new state", "from", status.State, "to", state)
 	status.State = state
 	return r.setStatus(ctx, taskKey, status)
 }
@@ -264,7 +265,7 @@ func (r *TupleGenerationTaskReconciler) createPVC(ctx context.Context, key *Rost
 	found := &v1.PersistentVolumeClaim{}
 	err := r.Get(ctx, name, found)
 	if err == nil {
-		logger.Info("Persistent volume claim already exists")
+		logger.V(logging.TRACE).Info("Persistent volume claim already exists")
 		return nil
 	}
 	pvc := &v1.PersistentVolumeClaim{
@@ -283,7 +284,7 @@ func (r *TupleGenerationTaskReconciler) createPVC(ctx context.Context, key *Rost
 			},
 		},
 	}
-	logger.Info("Creating persistent volume claim", "PVC", pvc)
+	logger.V(logging.DEBUG).Info("Creating persistent volume claim", "PVC", pvc)
 	err = r.Create(ctx, pvc)
 	if err != nil {
 		return fmt.Errorf("persistent volume claim creation failed for task %v: %w", key, err)
@@ -320,7 +321,7 @@ func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context
 	}
 	found, err := r.getProvisionerPod(ctx, key)
 	if err == nil {
-		logger.Info("Provisioner pod already exists")
+		logger.V(logging.TRACE).Info("Provisioner pod already exists")
 		return found, nil
 	}
 	pod := &v1.Pod{
@@ -366,7 +367,7 @@ func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context
 			},
 		},
 	}
-	logger.Info("Creating provisioner pod", "Pod", pod)
+	logger.V(logging.DEBUG).Info("Creating provisioner pod", "Pod", pod)
 	err = ctrl.SetControllerReference(task, pod, r.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("setting the owner reference for task %v failed: %w", name, err)
@@ -398,7 +399,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 	logger := log.FromContext(ctx).WithValues("Task.Key", key)
 	found, err := r.getGeneratorPod(ctx, task)
 	if err == nil {
-		logger.Info("Pod already exists")
+		logger.V(logging.TRACE).Info("Pod already exists")
 		return found, nil
 	}
 	vcpCount, err := numberOfVCPs(ctx, &r.Client, job.Namespace)
@@ -510,7 +511,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 			},
 		},
 	}
-	logger.Info("Creating generator pod", "Pod", pod)
+	logger.V(logging.DEBUG).Info("Creating generator pod", "Pod", pod)
 	err = ctrl.SetControllerReference(task, pod, r.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("setting the owner reference for task %v failed: %w", task.Name, err)

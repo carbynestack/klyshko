@@ -13,6 +13,7 @@ import (
 	"fmt"
 	klyshkov1alpha1 "github.com/carbynestack/klyshko/api/v1alpha1"
 	"github.com/carbynestack/klyshko/castor"
+	"github.com/carbynestack/klyshko/logging"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"go.etcd.io/etcd/api/v3/mvccpb"
@@ -68,7 +69,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		req.NamespacedName,
 	}
 	logger := r.Logger.WithValues("Job.Key", jobKey)
-	logger.Info("Reconciling tuple generation jobs")
+	logger.V(logging.DEBUG).Info("Reconciling tuple generation jobs")
 
 	// Cleanup if job has been deleted
 	job := &klyshkov1alpha1.TupleGenerationJob{}
@@ -80,13 +81,13 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to delete roster for job %v: %w", req.Name, err)
 			}
-			logger.Info("Roster deleted")
+			logger.V(logging.DEBUG).Info("Roster deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, fmt.Errorf("failed to read resource for job %v: %w", req.Name, err)
 	}
-	logger.Info("Job exists already")
+	logger.V(logging.TRACE).Info("Job exists already")
 
 	// Create roster if not existing (no etcd transaction needed as remote job creation is triggered by roster creation)
 	resp, err := r.EtcdClient.Get(ctx, jobKey.ToEtcdKey())
@@ -96,7 +97,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if resp.Count == 0 {
 		playerID, err := localPlayerID(ctx, &r.Client, req.Namespace)
 		if playerID != 0 {
-			logger.Info("Roster not available, retrying later")
+			logger.V(logging.DEBUG).Info("Roster not available, retrying later")
 			return ctrl.Result{}, nil
 		}
 		encoded, err := json.Marshal(job.Spec)
@@ -107,9 +108,9 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create roster for job %v: %w", req.Name, err)
 		}
-		logger.Info("Roster created")
+		logger.V(logging.DEBUG).Info("Roster created")
 	} else {
-		logger.Info("Roster exists already")
+		logger.V(logging.TRACE).Info("Roster exists already")
 	}
 
 	// Create local task if not existing
@@ -133,13 +134,13 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to create local task for job %v: %w", req.Name, err)
 			}
-			logger.Info("Local task created", "Task.Name", task.Name)
+			logger.V(logging.DEBUG).Info("Local task created", "Task.Name", task.Name)
 			return ctrl.Result{Requeue: true}, nil
 		}
 		// Error reading resource, requeue
 		return ctrl.Result{}, fmt.Errorf("failed to read task resource for job %v: %w", req.Name, err)
 	}
-	logger.Info("Local task exists already", "Task.Name", task.Name)
+	logger.V(logging.TRACE).Info("Local task exists already", "Task.Name", task.Name)
 
 	// Update job status based on owned task statuses; TODO That might not scale well in case we have many jobs
 	tasks := &klyshkov1alpha1.TupleGenerationTaskList{}
@@ -163,7 +164,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 			ownedBy = append(ownedBy, t)
 		}
 	}
-	logger.Info("Collected statuses of owned tasks", "Tasks", ownedBy)
+	logger.V(logging.DEBUG).Info("Collected statuses of owned tasks", "Tasks", ownedBy)
 
 	// Helper functions; TODO Consider moving this to state class
 	allTerminated := func(tasks []klyshkov1alpha1.TupleGenerationTask) bool {
@@ -205,9 +206,10 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("tuple chunk activation failed for job %v: %w", job.Name, err)
 		}
+		logger.Info("Job done", "Job", job)
 	}
 	if state.IsValid() && state != job.Status.State {
-		logger.Info("State update", "from", job.Status.State, "to", state)
+		logger.V(logging.DEBUG).Info("State update", "from", job.Status.State, "to", state)
 		job.Status.State = state
 		job.Status.LastStateTransitionTime = metav1.Now()
 		err = r.Status().Update(ctx, job)
@@ -216,7 +218,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	logger.Info("Desired state reached")
+	logger.V(logging.TRACE).Info("Desired state reached")
 	return ctrl.Result{}, nil
 }
 
@@ -266,7 +268,7 @@ func (r *TupleGenerationJobReconciler) handleWatchEvent(ctx context.Context, ev 
 		return
 	}
 	logger := r.Logger.WithValues("Key", key, "Value", string(ev.Kv.Value), "Type", ev.Type)
-	logger.Info("Processing roster event")
+	logger.V(logging.DEBUG).Info("Processing roster event")
 
 	switch k := key.(type) {
 	case RosterEntryKey:
@@ -304,7 +306,7 @@ func (r *TupleGenerationJobReconciler) handleJobUpdate(ctx context.Context, key 
 			logger.Error(err, "Failed to create job")
 			return
 		}
-		logger.Info("Job created")
+		logger.V(logging.DEBUG).Info("Job created")
 	case mvccpb.DELETE:
 		// Delete job iff exists
 		found := &klyshkov1alpha1.TupleGenerationJob{}
@@ -321,7 +323,7 @@ func (r *TupleGenerationJobReconciler) handleJobUpdate(ctx context.Context, key 
 			logger.Error(err, "Job deletion failed")
 			return
 		}
-		logger.Info("Job deleted")
+		logger.V(logging.DEBUG).Info("Job deleted")
 	default:
 		panic(fmt.Sprintf("Unexpected etcd event encounter: %v", ev))
 	}
@@ -361,7 +363,7 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 				logger.Error(err, "Failed to update proxy task")
 				return
 			}
-			logger.Info("Updated state", "State.New", status)
+			logger.V(logging.DEBUG).Info("Updated state", "State.New", status)
 		} else {
 			if !apierrors.IsNotFound(err) {
 				logger.Error(err, "Failed to fetch task")
@@ -384,7 +386,7 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 				}
 				return
 			}
-			logger.Info("Proxy task created")
+			logger.V(logging.DEBUG).Info("Proxy task created")
 		}
 	case mvccpb.DELETE:
 		// Delete task for job if exists
@@ -406,7 +408,7 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 			logger.Error(err, "Proxy task deletion failed")
 			return
 		}
-		logger.Info("Proxy task deleted")
+		logger.V(logging.DEBUG).Info("Proxy task deleted")
 	}
 }
 
@@ -424,7 +426,7 @@ func (r *TupleGenerationJobReconciler) createJobIfNotExists(ctx context.Context,
 				},
 				Spec: *jobSpec,
 			}
-			logger.Info("Creating a new job")
+			logger.V(logging.DEBUG).Info("Creating a new job")
 			return r.Create(ctx, job)
 		}
 		return err

@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/carbynestack/klyshko/logging"
 	"github.com/google/uuid"
 	"io"
 	"io/ioutil"
@@ -36,7 +37,7 @@ func NewClient(url string) *Client {
 func (c Client) ActivateTupleChunk(ctx context.Context, chunkID uuid.UUID) error {
 	logger := log.FromContext(ctx).WithValues("TupleChunkId", chunkID)
 	url := fmt.Sprintf("%s/intra-vcp/tuple-chunks/activate/%s", c.URL, chunkID)
-	logger.Info("Activating tuple chunk with castor URL", "URL", url)
+	logger.V(logging.DEBUG).Info("Activating tuple chunk with castor URL", "URL", url)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, nil)
 	if err != nil {
 		return err
@@ -58,7 +59,7 @@ func (c Client) ActivateTupleChunk(ctx context.Context, chunkID uuid.UUID) error
 			logger.Error(err, "Failed to close response from castor")
 		}
 	}()
-	logger.Info("Response from castor", "Status", resp.Status)
+	logger.V(logging.DEBUG).Info("Response from castor", "Status", resp.Status)
 	return nil
 }
 

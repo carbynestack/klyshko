@@ -222,6 +222,40 @@ be used to (re-)deploy Klyshko to a 2-party Carbyne Stack VC setup as described
 in the [tutorials](https://carbynestack.io/getting-started) on the Carbyne Stack
 website.
 
+### Logging
+
+#### Verbosity
+
+The Klyshko operator uses the [logging infrastructure][o-sdk-logging] provided
+by the Operator SDK. To adjust the logging verbosity set the `zap-log-level`
+flag to either `info`, `error`, or any integer value > 0 (higher values = more
+verbose, see table below).
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+# ...
+spec:
+  template:
+    spec:
+      containers:
+        # ...
+        - name: manager
+          args:
+            # ...
+            - "--zap-log-level=<<LOG-LEVEL>>"
+```
+
+#### Choosing Log Levels
+
+We use the following logging level convention in the Klyshko code basis.
+
+| Meaning   | Level | Command                          |
+| --------- | ----- | -------------------------------- |
+| Essential | 0     | `logger.Info()/Error()`          |
+| Debug     | 5     | `logger.V(DEBUG).Info()/Error()` |
+| Tracing   | 10    | `logger.V(TRACE).Info()/Error()` |
+
 ## License
 
 Carbyne Stack *Klyshko Correlated Randomness Generation Subsystem* is
@@ -241,3 +275,4 @@ Please see the Carbyne Stack
 .
 
 [mp-spdz-fake]: klyshko-mp-spdz/README.md#additional-parameters
+[o-sdk-logging]: https://sdk.operatorframework.io/docs/building-operators/golang/references/logging/

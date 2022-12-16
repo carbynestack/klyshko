@@ -51,6 +51,9 @@ var (
 )
 
 func main() {
+
+	// Add the zap logger flag set to the CLI
+	// (see https://sdk.operatorframework.io/docs/building-operators/golang/references/logging/ for more information)
 	opts := zap.Options{
 		Development: true,
 	}

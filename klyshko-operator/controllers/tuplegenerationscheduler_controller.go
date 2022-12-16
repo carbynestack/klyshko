@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/carbynestack/klyshko/castor"
+	"github.com/carbynestack/klyshko/logging"
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,7 +47,7 @@ type TupleGenerationSchedulerReconciler struct {
 // to bring the actual state closer to the desired one.
 func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.Info("Reconciling tuple generation schedulers")
+	logger.V(logging.DEBUG).Info("Reconciling tuple generation schedulers")
 
 	// Fetch scheduler resource
 	scheduler := &klyshkov1alpha1.TupleGenerationScheduler{}
@@ -76,7 +77,7 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 	// Stop if already at maximum concurrency level
 	activeJobCount := len(activeJobs)
 	if scheduler.Spec.Concurrency <= activeJobCount {
-		logger.Info("At maximum concurrency level", "Jobs.Active", activeJobCount, "Scheduler.Concurrency", scheduler.Spec.Concurrency)
+		logger.V(logging.DEBUG).Info("At maximum concurrency level - do nothing", "Jobs.Active", activeJobCount, "Scheduler.Concurrency", scheduler.Spec.Concurrency)
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 
@@ -89,7 +90,7 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 		logger.Error(err, "Fetching telemetry data from Castor failed", "Castor.URL", r.CastorClient.URL)
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, err
 	}
-	logger.Info("Tuple telemetry data fetched", "Metrics.Available", telemetry.TupleMetrics)
+	logger.V(logging.TRACE).Info("Tuple telemetry data fetched", "Metrics.Available", telemetry.TupleMetrics)
 	for _, j := range activeJobs {
 		for idx := range telemetry.TupleMetrics {
 			if j.Spec.Type == telemetry.TupleMetrics[idx].TupleType {
@@ -98,22 +99,22 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 			}
 		}
 	}
-	logger.Info("With in-flight tuple generation jobs", "Metrics.WithInflight", telemetry.TupleMetrics)
+	logger.V(logging.TRACE).Info("With in-flight tuple generation jobs", "Metrics.WithInflight", telemetry.TupleMetrics)
 	var belowThreshold []castor.TupleMetrics
 	for _, m := range telemetry.TupleMetrics {
 		if m.Available < scheduler.Spec.Threshold {
 			belowThreshold = append(belowThreshold, m)
 		}
 	}
-	logger.Info("Filtered for eligible types", "Metrics.Eligible", belowThreshold)
+	logger.V(logging.TRACE).Info("Filtered for eligible types", "Metrics.Eligible", belowThreshold)
 	if len(belowThreshold) == 0 {
-		logger.Info("Above threshold for all tuple types - do nothing")
+		logger.V(logging.DEBUG).Info("Above threshold for all tuple types - do nothing")
 		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
 	}
 	sort.Slice(belowThreshold, func(i, j int) bool {
 		return belowThreshold[i].Available < belowThreshold[j].Available
 	})
-	logger.Info("Sorted by priority", "Metrics.Sorted", belowThreshold)
+	logger.V(logging.DEBUG).Info("Sorted by priority", "Metrics.Sorted", belowThreshold)
 
 	// Create job for first tuple type below threshold
 	err = r.createJob(ctx, scheduler, belowThreshold[0].TupleType)
@@ -176,7 +177,7 @@ func (r *TupleGenerationSchedulerReconciler) cleanupFinishedJobs(ctx context.Con
 		logger.Error(err, "failed to fetch finished jobs")
 		return err
 	}
-	logger.Info("Deleting finished jobs", "jobs", finishedJobs)
+	logger.V(logging.DEBUG).Info("Deleting finished jobs", "jobs", finishedJobs)
 	for _, j := range finishedJobs {
 		err := r.Delete(ctx, &j)
 		if err != nil {
@@ -195,7 +196,7 @@ func (r *TupleGenerationSchedulerReconciler) getMatchingJobs(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	logger.Info("Considering potentially matching jobs", "jobs", allJobs)
+	logger.V(logging.TRACE).Info("Considering potentially matching jobs", "jobs", allJobs)
 	var matchingJobs []klyshkov1alpha1.TupleGenerationJob
 	for _, j := range allJobs.Items {
 		if pred(j) {
