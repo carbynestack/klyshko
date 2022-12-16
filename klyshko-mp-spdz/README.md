@@ -6,7 +6,45 @@ ability to generate fake tuples.
 For a high-level description of the Klyshko subsystem, its components, and how
 these interact, please see the [README] at the root of this repository.
 
-## Foreign MAC Key Shares
+## Configuration
+
+The MP-SPDZ fake tuple CRG expects the following configuration resources.
+
+## Public Parameters
+
+The only required public configuration parameter is the prime (`<<PRIME>>`
+placeholder below) used for generating tuples for the prime field arithmetic. It
+is specified using a config map as follows:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: io.carbynestack.engine.params
+data:
+  prime: <<PRIME>>
+```
+
+## Secret Parameters
+
+The required secret parameters are the MAC key shares for the prime field
+(`<<MAC_KEY_SHARE_P>>` placeholder below) and for the field of characteristic 2
+(`<<MAC_KEY_SHARE_2>>` below). They are specified using a K8s secret as follows:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: io.carbynestack.engine.params.secret
+type: Opaque
+data:
+  mac_key_share_p: |
+    <<MAC_KEY_SHARE_P>>
+  mac_key_share_2: |
+    <<MAC_KEY_SHARE_2>>
+```
+
+## Additional Parameters
 
 The MP-SPDZ fake tuple generator requires all MAC key shares to be available to
 all parties. They are expected to be made available using the

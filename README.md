@@ -73,8 +73,11 @@ Remember to do this on all VCPs of your VC.
 
 ### Provide CRG Configuration
 
-CRGs require some configuration that has to be provided using K8s config maps
-and secrets.
+CRGs typically require some configuration that has to be provided using K8s
+config maps and secrets. While the existence of these resources is dictated by
+the KII, their content is CRG implementation specific. Please refer to the CRG
+documentation for detailed information on what is expected. The following
+examples are for the [MP-SPDZ CRG](klyshko-mp-spdz/README.md).
 
 Public parameters are provided in a config map with name
 `io.carbynestack.engine.params` as follows:
@@ -116,9 +119,6 @@ data:
   <<KEY-#1>>: <<VALUE-#1>>
   <<KEY-#2>>: <<VALUE-#2>>
 ```
-
-Please consult the documentation of the CRG you want to use to understand
-whether any extra arguments are expected.
 
 ### Instantiating a Scheduler
 
