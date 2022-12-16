@@ -10,7 +10,24 @@
 set -e
 
 GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+# Checks whether the given Klyshko CRD exists.
+function crd_exists() {
+  kubectl get crds | grep "$1" && true
+  return $?
+}
+
+# Delete all resources of the given Klyshko CRD (CRD to be provided without the klyshko.carbynestack.io/v1alpha1 suffix).
+function delete_all() {
+  CRD=$1
+  if crd_exists "$CRD.klyshko.carbnyestack.io/v1alpha1"; then
+    echo "Deleting CRD $CRD and associated resources"
+    kubectl delete --all "$CRD"
+  fi
+}
 
 # Makes etcdctl with version specified as environment variable ETCD_VERSION available in ./bin folder
 function provide_etcdctl() {
@@ -31,9 +48,12 @@ function provide_etcdctl() {
   DOWNLOAD_URL=https://github.com/etcd-io/etcd/releases/download
   rm -f "/tmp/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz"
   curl -L "${DOWNLOAD_URL}/${REQUIRED_VERSION}/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz" -o "/tmp/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz"
+  mkdir -p bin
   tar --extract --file="/tmp/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz" -C bin/ "etcd-${REQUIRED_VERSION}-linux-amd64/etcdctl" --strip-components=1
   rm -f "/tmp/etcd-${REQUIRED_VERSION}-linux-amd64.tar.gz"
 }
+
+echo -e "${YELLOW}Deploying Klyshko Operator${NC}"
 
 declare -a CLUSTERS=("starbuck" "apollo")
 
@@ -42,9 +62,11 @@ for c in "${CLUSTERS[@]}"
 do
   echo -e "${GREEN}Undeploying from $c${NC}"
   kubectl config use-context "kind-$c"
-  kubectl delete --all tuplegenerationjobs
-  kubectl delete --all tuplegenerationtasks
-  make undeploy IMG="carbynestack/klyshko-operator:v0.0.1"
+  delete_all tuplegenerationjobs
+  delete_all tuplegenerationtasks
+  if ! make undeploy IMG="carbynestack/klyshko-operator:v0.0.1"; then
+    echo -e "${RED}Undeploying operator failed. This is fine, if the operator has not been deployed before.${NC}"
+  fi
 done
 
 echo -e "${GREEN}Cleaning up etcd${NC}"

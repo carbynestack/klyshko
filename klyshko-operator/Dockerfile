@@ -14,6 +14,7 @@ RUN go mod download
 # Copy the go source
 COPY main.go main.go
 COPY api/ api/
+COPY castor/ castor/
 COPY controllers/ controllers/
 
 # Build
