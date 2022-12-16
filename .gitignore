@@ -13,3 +13,6 @@
 
 # Go
 /klyshko-operator/vendor/
+
+# Java
+**/target
