@@ -91,12 +91,16 @@ metadata:
 spec:
   concurrency: 3
   threshold: 500000
+  generator:
+    image: carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT
+    imagePullPolicy: IfNotPresent
 ```
 
-Klyshko will start producing correlated randomness by creating respective jobs
-whenever the number of tuples for a specific type drops below the given
-`threshold`. `concurrency` specifies the maximum number of jobs that are allowed
-to run concurrently. This is the upper limit across jobs for all tuple types.
+Klyshko will start producing correlated randomness using the given CRG image by
+creating jobs whenever the number of tuples for a specific type drops below the
+given `threshold`. `concurrency` specifies the maximum number of jobs that are
+allowed to run concurrently. This is the upper limit across jobs for all tuple
+types.
 
 ## Klyshko Integration Interface (KII)
 
@@ -236,4 +240,4 @@ Please see the Carbyne Stack
 [Contributor's Guide](https://github.com/carbynestack/carbynestack/blob/master/CONTRIBUTING.md)
 .
 
-[mp-spdz-fake]: klyshko-mp-spdz/README.md#foreign-mac-key-shares
+[mp-spdz-fake]: klyshko-mp-spdz/README.md#additional-parameters

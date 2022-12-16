@@ -278,7 +278,7 @@ func (r *TupleGenerationTaskReconciler) createPVC(ctx context.Context, key *Rost
 			},
 			Resources: v1.ResourceRequirements{
 				Requests: v1.ResourceList{
-					"storage": resource.MustParse("100Mi"), // TODO Make configurable
+					"storage": resource.MustParse("100Mi"), // TODO Can this be computed from the number of tuples?
 				},
 			},
 		},
@@ -413,8 +413,9 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{
 				{
-					Name:  "generator",
-					Image: "carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT", // TODO Read from config
+					Name:            "generator",
+					Image:           job.Spec.Generator.Image,
+					ImagePullPolicy: job.Spec.Generator.ImagePullPolicy,
 					Env: []v1.EnvVar{
 						{
 							Name:  "KII_JOB_ID",

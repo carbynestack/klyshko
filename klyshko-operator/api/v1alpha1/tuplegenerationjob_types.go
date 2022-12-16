@@ -54,6 +54,8 @@ type TupleGenerationJobSpec struct {
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:ExclusiveMinimum=true
 	Count int `json:"count"`
+
+	Generator GeneratorSpec `json:"generator"`
 }
 
 // TupleGenerationJobStatus defines the observed state of a TupleGenerationJob.

@@ -11,3 +11,6 @@ metadata:
 spec:
   concurrency: 2
   threshold: 50000
+  generator:
+    image: carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT
+    imagePullPolicy: IfNotPresent

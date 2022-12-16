@@ -13,4 +13,4 @@ ADD https://github.com/carbynestack/cli/releases/download/$CLI_VERSION/cli-$CLI_
 # Copy resources
 COPY kii-provisioner-run.sh .
 
-CMD ["/bin/bash", "-c", "./kii-provisioner-run.sh"]
+ENTRYPOINT ["/bin/bash", "-c", "./kii-provisioner-run.sh"]

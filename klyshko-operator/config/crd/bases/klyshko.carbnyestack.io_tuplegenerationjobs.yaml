@@ -56,6 +56,25 @@ spec:
                 exclusiveMinimum: true
                 minimum: 0
                 type: integer
+              generator:
+                description: GeneratorSpec is a description of a Correlated Randomness
+                  Generator.
+                properties:
+                  image:
+                    description: Container image name.
+                    type: string
+                  imagePullPolicy:
+                    default: IfNotPresent
+                    description: Image pull policy specifies under which circumstances
+                      the image is pulled from the registry.
+                    enum:
+                    - IfNotPresent
+                    - Always
+                    - Never
+                    type: string
+                required:
+                - image
+                type: object
               id:
                 type: string
               type:
@@ -73,6 +92,7 @@ spec:
                 type: string
             required:
             - count
+            - generator
             - id
             - type
             type: object

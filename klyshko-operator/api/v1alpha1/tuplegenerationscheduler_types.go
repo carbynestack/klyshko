@@ -13,10 +13,13 @@ import (
 
 // TupleGenerationSchedulerSpec defines the desired state of a TupleGenerationScheduler.
 type TupleGenerationSchedulerSpec struct {
+
+	//+kubebuilder:default=1
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:ExclusiveMinimum=false
-	Concurrency int `json:"concurrency"`
+	Concurrency int `json:"concurrency,omitempty"`
 
+	//+kubebuilder:validation:Required
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:ExclusiveMinimum=true
 	Threshold int `json:"threshold"`
@@ -25,6 +28,8 @@ type TupleGenerationSchedulerSpec struct {
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:ExclusiveMinimum=true
 	TTLSecondsAfterFinished int `json:"ttlSecondsAfterFinished"`
+
+	Generator GeneratorSpec `json:"generator"`
 }
 
 // TupleGenerationSchedulerStatus defines the observed state of a TupleGenerationScheduler.

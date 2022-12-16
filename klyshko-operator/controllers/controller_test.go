@@ -497,6 +497,9 @@ func createScheduler(ctx context.Context, vc *vc) *klyshkov1alpha1.TupleGenerati
 			Concurrency:             SchedulerConcurrency,
 			Threshold:               SchedulerTupleThreshold,
 			TTLSecondsAfterFinished: 5,
+			Generator: klyshkov1alpha1.GeneratorSpec{
+				Image: "carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT",
+			},
 		},
 	}
 	Expect(vc.vcps[0].k8sClient.Create(ctx, scheduler)).Should(Succeed())

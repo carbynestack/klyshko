@@ -140,9 +140,10 @@ func (r *TupleGenerationSchedulerReconciler) createJob(ctx context.Context, sche
 			Namespace: scheduler.Namespace,
 		},
 		Spec: klyshkov1alpha1.TupleGenerationJobSpec{
-			ID:    jobID,
-			Type:  tupleType,
-			Count: MinimumTuplesPerJob, // TODO Make this configurable
+			ID:        jobID,
+			Type:      tupleType,
+			Count:     MinimumTuplesPerJob, // TODO Make this configurable
+			Generator: scheduler.Spec.Generator,
 		},
 		Status: klyshkov1alpha1.TupleGenerationJobStatus{
 			State: klyshkov1alpha1.JobPending,
