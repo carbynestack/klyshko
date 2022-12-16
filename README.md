@@ -71,54 +71,12 @@ make deploy IMG="carbynestack/klyshko-operator:v0.0.1"
 
 Remember to do this on all VCPs of your VC.
 
-### Provide CRG Configuration
+### Provide the Configuration
 
-CRGs typically require some configuration that has to be provided using K8s
-config maps and secrets. While the existence of these resources is dictated by
-the KII, their content is CRG implementation specific. Please refer to the CRG
-documentation for detailed information on what is expected. The following
-examples are for the [MP-SPDZ CRG](klyshko-mp-spdz/README.md).
-
-Public parameters are provided in a config map with name
-`io.carbynestack.engine.params` as follows:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: io.carbynestack.engine.params
-data:
-  prime: <<PRIME>>
-```
-
-Sensitive parameters are provided using a K8s secret with name
-`io.carbynestack.engine.params.secret` as follows:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: io.carbynestack.engine.params.secret
-type: Opaque
-data:
-  mac_key_share_p: |
-    <<MAC_KEY_SHARE_P>>
-  mac_key_share_2: |
-    <<MAC_KEY_SHARE_2>>
-```
-
-Additional parameters _may_ be provided using a K8s config map with name
-`io.carbynestack.engine.params.extra` as follows:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: io.carbynestack.engine.params.extra
-data:
-  <<KEY-#1>>: <<VALUE-#1>>
-  <<KEY-#2>>: <<VALUE-#2>>
-```
+Klyshko requires CRG-specific configuration that is provided via K8s config maps
+and secrets (see [here](#configuration-parameters) for details). Consult the
+documentation of the [MP-SPDZ CRG](klyshko-mp-spdz/README.md) for information of
+what has to be provided.
 
 ### Instantiating a Scheduler
 
@@ -189,21 +147,69 @@ the tuple generation and provisioning process.
 
 - `KII_TUPLE_FILE`: The file the generated tuples must be written to.
 
-### Prime
+### Configuration Parameters
 
-The prime to be used for generating prime field tuples is provided in the file
-`/etc/kii/params/prime`.
+CRGs typically require some configuration that has to be provided using K8s
+config maps and secrets. While the existence of these resources is dictated by
+the KII, their content is CRG implementation specific. Please refer to the CRG
+documentation for detailed information on what is expected. The following
+examples are for the [MP-SPDZ CRG](klyshko-mp-spdz/README.md).
 
-### MAC Key Shares
+#### Public Parameters
 
-The MAC key shares for prime and binary fields are made available as files
-`mac_key_share_p` and `mac_key_share_2` in folder `/etc/kii/secret-params`.
+Public, i.e., non-sensitive, parameters are provided in a config map with name
+`io.carbynestack.engine.params` as follows:
 
-### Additional Parameters
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: io.carbynestack.engine.params
+data:
+  prime: <<PRIME>>
+```
 
-Some CRGs might require additional _non-standard_ parameters. These are made
-available by the Klyshko runtime in folder `/etc/kii/extra-params`. For an
-example of how this is used see the [MP-SPDZ fake tuple CRG][mp-spdz-fake].
+They are provided to CRGs as files in the `/etc/kii/params/` folder. The file
+`/etc/kii/params/prime` contains the `<<PRIME>>` in the example above.
+
+#### Secret Parameters
+
+Sensitive parameters are provided using a K8s secret with name
+`io.carbynestack.engine.params.secret` as follows:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: io.carbynestack.engine.params.secret
+type: Opaque
+data:
+  mac_key_share_p: |
+    <<MAC_KEY_SHARE_P>>
+  mac_key_share_2: |
+    <<MAC_KEY_SHARE_2>>
+```
+
+They are made available to CRGs as files in the folder `/etc/kii/secret-params`.
+
+#### Additional Parameters
+
+Additional parameters *may* be provided using a K8s config map with name
+`io.carbynestack.engine.params.extra` as follows:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: io.carbynestack.engine.params.extra
+data:
+  <<KEY-#1>>: <<VALUE-#1>>
+  <<KEY-#2>>: <<VALUE-#2>>
+```
+
+These are made available to CRGs by the Klyshko runtime as files in folder
+`/etc/kii/extra-params`. For an example of how this is used see the
+[MP-SPDZ fake tuple CRG][mp-spdz-fake].
 
 ## Development
 
