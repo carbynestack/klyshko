@@ -37,22 +37,20 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(klyshkov1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
+var (
+	metricsAddr          = flag.String("metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	enableLeaderElection = flag.Bool("leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	probeAddr            = flag.String("health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	etcdEndpoint         = flag.String("etcd-endpoint", "172.18.1.129:2379", "The address of the etcd service used for cross VCP coordination.")
+	etcdDialTimeout      = flag.Int("etcd-dial-timeout", 5, "The timeout (in seconds) for failing to establish a connection to the etcd service.")
+	castorURL            = flag.String("castor-url", "http://cs-castor.default.svc.cluster.local:10100", "The base url of the castor service used to upload generated tuples.")
+)
+
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var castorURL string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&castorURL, "castor-url", "http://cs-castor.default.svc.cluster.local:10100", "The base url of the castor service.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -63,10 +61,10 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
+		MetricsBindAddress:     *metricsAddr,
 		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
+		HealthProbeBindAddress: *probeAddr,
+		LeaderElection:         *enableLeaderElection,
 		LeaderElectionID:       "operator.klyshko.carbynestack.io",
 	})
 	if err != nil {
@@ -75,8 +73,8 @@ func main() {
 	}
 
 	etcdClient, err := clientv3.New(clientv3.Config{
-		Endpoints:   []string{"172.18.1.129:2379"},
-		DialTimeout: 5 * time.Second,
+		Endpoints:   []string{*etcdEndpoint},
+		DialTimeout: time.Duration(*etcdDialTimeout) * time.Second,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create etcd client", "controller", "TupleGenerationJob")
@@ -87,7 +85,7 @@ func main() {
 		setupLog.Error(err, "closing etcd client failed")
 	}()
 
-	castorClient := castor.NewClient(castorURL)
+	castorClient := castor.NewClient(*castorURL)
 
 	if err = controllers.NewTupleGenerationJobReconciler(mgr.GetClient(), mgr.GetScheme(), etcdClient, castorClient).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TupleGenerationJob")
