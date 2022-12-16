@@ -160,10 +160,9 @@ during execution. See below for a detailed description.
 
 ### Entrypoint
 
-The CRG docker image must contain a script called `kii-run.sh` in the working
-directory that spawns the tuple generation process. The script must terminate
-with a non-zero exit code if and only if the tuples can not be generated for
-some reason.
+The CRG docker image must spawn the tuple generation process when launched as a
+container. The command given as the entrypoint must terminate with a non-zero
+exit code if and only if the tuples could not be generated for some reason.
 
 ### Environment Variables
 

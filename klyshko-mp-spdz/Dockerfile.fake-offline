@@ -8,3 +8,6 @@ FROM ghcr.io/carbynestack/spdz:5350e66
 
 # Copy resources
 COPY kii-run.sh .
+
+# Run the kii-run script
+ENTRYPOINT ["/bin/bash", "-c", "./kii-run.sh"]

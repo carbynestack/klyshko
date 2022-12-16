@@ -415,13 +415,6 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 				{
 					Name:  "generator",
 					Image: "carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT", // TODO Read from config
-					Command: []string{
-						"/bin/bash",
-						"-c",
-					},
-					Args: []string{
-						"./kii-run.sh",
-					},
 					Env: []v1.EnvVar{
 						{
 							Name:  "KII_JOB_ID",
