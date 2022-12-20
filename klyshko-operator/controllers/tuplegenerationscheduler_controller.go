@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sort"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -78,46 +77,25 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 	activeJobCount := len(activeJobs)
 	if scheduler.Spec.Concurrency <= activeJobCount {
 		logger.V(logging.DEBUG).Info("At maximum concurrency level - do nothing", "Jobs.Active", activeJobCount, "Scheduler.Concurrency", scheduler.Spec.Concurrency)
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: PeriodicReconciliationDuration}, nil
 	}
 
-	// Least available first strategy for selecting tuple types to create a job for
-	// 1. Compute available and in generation number of tuples per type
-	// 2. Filter out all above threshold
-	// 3. Sort ascending wrt to sum from step 1
+	// Fetch telemetry data from Castor
 	telemetry, err := r.CastorClient.GetTelemetry(ctx)
 	if err != nil {
 		logger.Error(err, "Fetching telemetry data from Castor failed", "Castor.URL", r.CastorClient.URL)
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, err
+		return ctrl.Result{RequeueAfter: PeriodicReconciliationDuration}, err
 	}
-	logger.V(logging.TRACE).Info("Tuple telemetry data fetched", "Metrics.Available", telemetry.TupleMetrics)
-	for _, j := range activeJobs {
-		for idx := range telemetry.TupleMetrics {
-			if j.Spec.Type == telemetry.TupleMetrics[idx].TupleType {
-				telemetry.TupleMetrics[idx].Available = telemetry.TupleMetrics[idx].Available + j.Spec.Count
-				break
-			}
-		}
-	}
-	logger.V(logging.TRACE).Info("With in-flight tuple generation jobs", "Metrics.WithInflight", telemetry.TupleMetrics)
-	var belowThreshold []castor.TupleMetrics
-	for _, m := range telemetry.TupleMetrics {
-		if m.Available < scheduler.Spec.Threshold {
-			belowThreshold = append(belowThreshold, m)
-		}
-	}
-	logger.V(logging.TRACE).Info("Filtered for eligible types", "Metrics.Eligible", belowThreshold)
-	if len(belowThreshold) == 0 {
-		logger.V(logging.DEBUG).Info("Above threshold for all tuple types - do nothing")
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-	sort.Slice(belowThreshold, func(i, j int) bool {
-		return belowThreshold[i].Available < belowThreshold[j].Available
-	})
-	logger.V(logging.DEBUG).Info("Sorted by priority", "Metrics.Sorted", belowThreshold)
 
-	// Create job for first tuple type below threshold
-	err = r.createJob(ctx, scheduler, belowThreshold[0].TupleType)
+	// Decide which tuple type to generate next based on (for now fixed) strategy
+	var strategy SchedulingStrategy = &LeastAvailableFirstStrategy{Threshold: scheduler.Spec.Threshold}
+	tupleType := strategy.Schedule(ctx, telemetry, activeJobs)
+	if tupleType == nil {
+		return ctrl.Result{RequeueAfter: PeriodicReconciliationDuration}, nil
+	}
+
+	// Create job for selected tuple type
+	err = r.createJob(ctx, scheduler, *tupleType)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create tuple generation job: %w", err)
 	}

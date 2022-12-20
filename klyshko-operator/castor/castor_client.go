@@ -75,6 +75,17 @@ type Telemetry struct {
 	TupleMetrics []TupleMetrics `json:"metrics"`
 }
 
+// DeepCopy creates a deep copy of a telemetry struct.
+func (t Telemetry) DeepCopy() Telemetry {
+	c := Telemetry{
+		TupleMetrics: []TupleMetrics{},
+	}
+	for _, m := range t.TupleMetrics {
+		c.TupleMetrics = append(c.TupleMetrics, m)
+	}
+	return c
+}
+
 // GetTelemetry fetches telemetry data from the Castor service.
 func (c Client) GetTelemetry(ctx context.Context) (Telemetry, error) {
 	logger := log.FromContext(ctx)
