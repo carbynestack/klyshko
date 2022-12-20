@@ -1,0 +1,41 @@
+#
+# Copyright (c) 2022 - for information on the respective copyright owner
+# see the NOTICE file and/or the repository https://github.com/carbynestack/kylshko.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+name: Build and publish Operator
+on:
+  workflow_dispatch:
+  push:
+defaults:
+  run:
+    working-directory: klyshko-operator
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: carbynestack/klyshko-operator
+  WORKING_DIRECTORY: klyshko-operator
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Log in to container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: ${{ env.WORKING_DIRECTORY }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
