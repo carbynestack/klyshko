@@ -121,9 +121,10 @@ func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *cli
 		NewTupleGenerationJobReconciler(
 			k8sManager.GetClient(), k8sManager.GetScheme(), etcdClient, castorClient),
 		&TupleGenerationTaskReconciler{ // TODO Replace with constructors
-			Client:     k8sManager.GetClient(),
-			Scheme:     k8sManager.GetScheme(),
-			EtcdClient: etcdClient,
+			Client:           k8sManager.GetClient(),
+			Scheme:           k8sManager.GetScheme(),
+			EtcdClient:       etcdClient,
+			ProvisionerImage: "carbynestack/klyshko-provisioner:1.0.0-SNAPSHOT",
 		},
 	}
 	if vcpID == 0 {

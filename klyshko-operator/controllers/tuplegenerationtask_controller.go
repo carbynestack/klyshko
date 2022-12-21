@@ -32,8 +32,9 @@ import (
 // TupleGenerationTaskReconciler reconciles a TupleGenerationTask object.
 type TupleGenerationTaskReconciler struct {
 	client.Client
-	Scheme     *runtime.Scheme
-	EtcdClient *clientv3.Client
+	Scheme           *runtime.Scheme
+	EtcdClient       *clientv3.Client
+	ProvisionerImage string
 }
 
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks,verbs=get;list;watch;create;update;patch;delete
@@ -331,8 +332,8 @@ func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context
 		},
 		Spec: v1.PodSpec{
 			Containers: []v1.Container{{
-				Name:  "generator",
-				Image: "carbynestack/klyshko-provisioner:1.0.0-SNAPSHOT", // TODO Read from config
+				Name:  "provisioner",
+				Image: r.ProvisionerImage,
 				Env: []v1.EnvVar{
 					{
 						Name:  "KII_JOB_ID",

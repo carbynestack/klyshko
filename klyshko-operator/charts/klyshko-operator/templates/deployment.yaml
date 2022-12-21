@@ -42,6 +42,7 @@ spec:
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
             - --zap-log-level=info
+            - --provisioner-image={{ printf "%s/%s:%s" .Values.provisioner.image.registry .Values.provisioner.image.repository .Values.provisioner.image.tag }}
           command:
             - /manager
           image:  "{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}"

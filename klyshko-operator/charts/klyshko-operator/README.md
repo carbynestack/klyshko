@@ -83,3 +83,11 @@ helm install --name my-release -f values.yaml klyshko-operator
 | `controller.image.tag`        | Controller image tag                             | `latest`                                   |
 | `controller.image.pullPolicy` | Controller image pull policy                     | `IfNotPresent`                             |
 | `controller.imagePullSecrets` | Pull secrets used to fetch the controller image  | `[]`                                       |
+
+### Provisioner
+
+| Parameter                      | Description                                       | Default                            |
+| ------------------------------ | ------------------------------------------------- | ---------------------------------- |
+| `provisioner.image.registry`   | Image registry used to pull the provisioner image | `ghcr.io`                          |
+| `provisioner.image.repository` | Provisioner image name                            | `carbynestack/klyshko-provisioner` |
+| `provisioner.image.tag`        | Provisioner image tag                             | `latest`                           |

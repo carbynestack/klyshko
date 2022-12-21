@@ -15,3 +15,9 @@ controller:
     pullPolicy: IfNotPresent
     tag: latest
   imagePullSecrets: []
+
+provisioner:
+  image:
+    registry: ghcr.io
+    repository: carbynestack/klyshko-provisioner
+    tag: latest
