@@ -125,7 +125,8 @@ func (r *TupleGenerationSchedulerReconciler) createJob(ctx context.Context, sche
 			Generator: scheduler.Spec.Generator,
 		},
 		Status: klyshkov1alpha1.TupleGenerationJobStatus{
-			State: klyshkov1alpha1.JobPending,
+			State:                   klyshkov1alpha1.JobPending,
+			LastStateTransitionTime: metav1.Now(),
 		},
 	}
 	err := ctrl.SetControllerReference(scheduler, job, r.Scheme)
