@@ -1,0 +1,238 @@
+#
+# Copyright (c) 2022 - for information on the respective copyright owner
+# see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.1
+  name: tuplegenerationjobs.klyshko.carbnyestack.io
+spec:
+  group: klyshko.carbnyestack.io
+  names:
+    kind: TupleGenerationJob
+    listKind: TupleGenerationJobList
+    plural: tuplegenerationjobs
+    shortNames:
+      - tgj
+      - tgjob
+    singular: tuplegenerationjob
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .spec.type
+          name: Tuple Type
+          type: string
+        - jsonPath: .spec.count
+          name: Tuple Count
+          type: string
+        - jsonPath: .status.state
+          name: Status
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: TupleGenerationJob is the Schema for the TupleGenerationJob API.
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: TupleGenerationJobSpec defines the desired state of a TupleGenerationJob.
+              properties:
+                count:
+                  exclusiveMinimum: true
+                  minimum: 0
+                  type: integer
+                generator:
+                  description: GeneratorSpec is a description of a Correlated Randomness Generator.
+                  properties:
+                    image:
+                      description: Container image name.
+                      type: string
+                    imagePullPolicy:
+                      default: IfNotPresent
+                      description: Image pull policy specifies under which circumstances the image is pulled from the registry.
+                      enum:
+                        - IfNotPresent
+                        - Always
+                        - Never
+                      type: string
+                  required:
+                    - image
+                  type: object
+                id:
+                  type: string
+                type:
+                  enum:
+                    - BIT_GFP
+                    - BIT_GF2N
+                    - INPUT_MASK_GFP
+                    - INPUT_MASK_GF2N
+                    - INVERSE_TUPLE_GFP
+                    - INVERSE_TUPLE_GF2N
+                    - SQUARE_TUPLE_GFP
+                    - SQUARE_TUPLE_GF2N
+                    - MULTIPLICATION_TRIPLE_GFP
+                    - MULTIPLICATION_TRIPLE_GF2N
+                  type: string
+              required:
+                - count
+                - generator
+                - id
+                - type
+              type: object
+            status:
+              description: TupleGenerationJobStatus defines the observed state of a TupleGenerationJob.
+              properties:
+                lastStateTransitionTime:
+                  format: date-time
+                  type: string
+                state:
+                  description: TupleGenerationJobState encodes the state of a TupleGenerationJob.
+                  type: string
+              required:
+                - lastStateTransitionTime
+                - state
+              type: object
+          type: object
+      served: true
+      storage: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.1
+  name: tuplegenerationschedulers.klyshko.carbnyestack.io
+spec:
+  group: klyshko.carbnyestack.io
+  names:
+    kind: TupleGenerationScheduler
+    listKind: TupleGenerationSchedulerList
+    plural: tuplegenerationschedulers
+    singular: tuplegenerationscheduler
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: TupleGenerationScheduler is the Schema for the TupleGenerationScheduler API.
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: TupleGenerationSchedulerSpec defines the desired state of a TupleGenerationScheduler.
+              properties:
+                concurrency:
+                  default: 1
+                  minimum: 0
+                  type: integer
+                generator:
+                  description: GeneratorSpec is a description of a Correlated Randomness Generator.
+                  properties:
+                    image:
+                      description: Container image name.
+                      type: string
+                    imagePullPolicy:
+                      default: IfNotPresent
+                      description: Image pull policy specifies under which circumstances the image is pulled from the registry.
+                      enum:
+                        - IfNotPresent
+                        - Always
+                        - Never
+                      type: string
+                  required:
+                    - image
+                  type: object
+                threshold:
+                  exclusiveMinimum: true
+                  minimum: 0
+                  type: integer
+                ttlSecondsAfterFinished:
+                  default: 600
+                  exclusiveMinimum: true
+                  minimum: 0
+                  type: integer
+              required:
+                - generator
+                - threshold
+                - ttlSecondsAfterFinished
+              type: object
+            status:
+              description: TupleGenerationSchedulerStatus defines the observed state of a TupleGenerationScheduler.
+              type: object
+          type: object
+      served: true
+      storage: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.1
+  name: tuplegenerationtasks.klyshko.carbnyestack.io
+spec:
+  group: klyshko.carbnyestack.io
+  names:
+    kind: TupleGenerationTask
+    listKind: TupleGenerationTaskList
+    plural: tuplegenerationtasks
+    shortNames:
+      - tgt
+      - tgtask
+    singular: tuplegenerationtask
+  scope: Namespaced
+  versions:
+    - additionalPrinterColumns:
+        - jsonPath: .status.state
+          name: Status
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: TupleGenerationTask is the Schema for the TupleGenerationTask API.
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: TupleGenerationTaskSpec defines the desired state of a TupleGenerationTask.
+              type: object
+            status:
+              description: TupleGenerationTaskStatus defines the observed state of a TupleGenerationTask.
+              properties:
+                state:
+                  description: TupleGenerationTaskState encodes the state of a TupleGenerationTask.
+                  type: string
+              required:
+                - state
+              type: object
+          type: object
+      served: true
+      storage: true
