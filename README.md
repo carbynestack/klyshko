@@ -2,6 +2,7 @@
 
 [![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/3a07fd83b67647138b8ea660d16cdc35)](https://www.codacy.com/gh/carbynestack/klyshko/dashboard?utm_source=github.com&utm_medium=referral&utm_content=carbynestack/klyshko&utm_campaign=Badge_Grade)
+[![codecov](https://codecov.io/gh/carbynestack/klyshko/branch/master/graph/badge.svg?token=6hRb7xRW6C)](https://codecov.io/gh/carbynestack/klyshko)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
