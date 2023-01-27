@@ -63,13 +63,27 @@ To deploy Klyshko to your VC you have to perform the following steps:
 
 ### Install the operator
 
-You can use the `make` tool to deploy the operator using
+The Klyshko operator can be deployed either by building from source or by using
+`helm`. Both variants are described below. Remember to perform the respective
+steps on all VCPs of your VC.
+
+#### From Source
+
+You can use the `make` tool to build and deploy the operator using
 
 ```shell
-make deploy IMG="carbynestack/klyshko-operator:v0.0.1"
+cd klyshko-operator
+make deploy IMG="carbynestack/klyshko-operator:v0.1.0"
 ```
 
-Remember to do this on all VCPs of your VC.
+#### Using Helm
+
+You can deploy the Klyshko operator using `helm` as follows:
+
+```shell
+HELM_EXPERIMENTAL_OCI=1 helm install klyshko-operator oci://ghcr.io/carbynestack/klyshko-operator \ 
+  --version 0.1.0
+```
 
 ### Provide the Configuration
 
