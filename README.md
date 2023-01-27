@@ -81,7 +81,7 @@ make deploy IMG="carbynestack/klyshko-operator:v0.1.0"
 You can deploy the Klyshko operator using `helm` as follows:
 
 ```shell
-HELM_EXPERIMENTAL_OCI=1 helm install klyshko-operator oci://ghcr.io/carbynestack/klyshko-operator \ 
+HELM_EXPERIMENTAL_OCI=1 helm install klyshko-operator oci://ghcr.io/carbynestack/klyshko-operator \
   --version 0.1.0
 ```
 
