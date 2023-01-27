@@ -74,6 +74,12 @@ provided while installing the chart. For example,
 helm install --name my-release -f values.yaml klyshko-operator
 ```
 
+### General
+
+| Parameter          | Description                                   | Default |
+| ------------------ | --------------------------------------------- | ------- |
+| `imagePullSecrets` | Pull secrets used to fetch the Klyshko images | `[]`    |
+
 ### Controller
 
 | Parameter                     | Description                                      | Default                                    |
@@ -82,7 +88,6 @@ helm install --name my-release -f values.yaml klyshko-operator
 | `controller.image.repository` | Controller image name                            | `carbynestack/klyshko-operator-controller` |
 | `controller.image.tag`        | Controller image tag                             | `latest`                                   |
 | `controller.image.pullPolicy` | Controller image pull policy                     | `IfNotPresent`                             |
-| `controller.imagePullSecrets` | Pull secrets used to fetch the controller image  | `[]`                                       |
 
 ### Provisioner
 

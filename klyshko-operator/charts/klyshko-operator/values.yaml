@@ -8,13 +8,14 @@
 
 # This file defines the default values for all variables used in the Klyshko Operator Helm Chart.
 
+imagePullSecrets: []
+
 controller:
   image:
     registry: ghcr.io
     repository: carbynestack/klyshko-operator-controller
     pullPolicy: IfNotPresent
     tag: latest
-  imagePullSecrets: []
 
 provisioner:
   image:
