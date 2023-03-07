@@ -13,15 +13,6 @@ resources:
   controller: true
   domain: carbnyestack.io
   group: klyshko
-  kind: Job
-  path: github.com/carbynestack/klyshko/api/v1alpha1
-  version: v1alpha1
-- api:
-    crdVersion: v1
-    namespaced: true
-  controller: true
-  domain: carbnyestack.io
-  group: klyshko
   kind: TupleGenerationJob
   path: github.com/carbynestack/klyshko/api/v1alpha1
   version: v1alpha1

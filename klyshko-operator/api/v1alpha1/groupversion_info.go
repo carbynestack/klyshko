@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 //+kubebuilder:object:generate=true
 //+groupName=klyshko.carbnyestack.io
+
 package v1alpha1
 
 import (

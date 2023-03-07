@@ -27,7 +27,7 @@ var _ = Describe("Fetching telemetry", func() {
 		httpmock.DeactivateAndReset()
 	})
 
-	When("when Castor services responds with expected JSON data", func() {
+	When("when Castor service responds with expected JSON data", func() {
 
 		expectedTelemetry := Telemetry{TupleMetrics: []TupleMetrics{
 			{
@@ -55,7 +55,7 @@ var _ = Describe("Fetching telemetry", func() {
 		})
 	})
 
-	When("when Castor services responds with non-success status code", func() {
+	When("when Castor service responds with non-success status code", func() {
 		BeforeEach(func() {
 			httpmock.Activate()
 			httpmock.RegisterResponder(
@@ -89,7 +89,7 @@ var _ = Describe("Activating a tuple chunk", func() {
 		httpmock.DeactivateAndReset()
 	})
 
-	When("when Castor services responds with success status code", func() {
+	When("when Castor service responds with success status code", func() {
 		BeforeEach(func() {
 			httpmock.Activate()
 			httpmock.RegisterResponder(
@@ -106,7 +106,7 @@ var _ = Describe("Activating a tuple chunk", func() {
 		})
 	})
 
-	When("when Castor services responds with bon-success status code", func() {
+	When("when Castor service responds with non-success status code", func() {
 		BeforeEach(func() {
 			httpmock.Activate()
 			httpmock.RegisterResponder(

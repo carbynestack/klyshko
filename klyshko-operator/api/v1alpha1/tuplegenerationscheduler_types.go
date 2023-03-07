@@ -37,6 +37,7 @@ type TupleGenerationSchedulerStatus struct {
 }
 
 //+kubebuilder:object:root=true
+//+kubebuilder:resource:shortName=tgs;tgscheduler
 //+kubebuilder:subresource:status
 
 // TupleGenerationScheduler is the Schema for the TupleGenerationScheduler API.

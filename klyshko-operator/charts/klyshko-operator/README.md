@@ -54,7 +54,7 @@ deletes the release.
 
 ## Configuration
 
-The following sections list the (main) configurable parameters of the
+The following sections list the (main) configuration parameters of the
 `klyshko-operator` chart and their default values. For the full list of
 configuration parameters see [values.yaml](values.yaml).
 

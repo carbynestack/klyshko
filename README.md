@@ -1,6 +1,5 @@
 # Carbyne Stack Klyshko Correlated Randomness Generation
 
-[![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/3a07fd83b67647138b8ea660d16cdc35)](https://www.codacy.com/gh/carbynestack/klyshko/dashboard?utm_source=github.com&utm_medium=referral&utm_content=carbynestack/klyshko&utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/carbynestack/klyshko/branch/master/graph/badge.svg?token=6hRb7xRW6C)](https://codecov.io/gh/carbynestack/klyshko)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
@@ -46,7 +45,7 @@ Klyshko consists of three main components:
     generated.
   - A *Task* (kind: `TupleGenerationTask`) represents a local or remote
     execution of a CRG. A task exposes the state of the invocation on a single
-    VCP. On the job level task states are aggregated into a job state. Remote
+    VCP. On the job level, task states are aggregated into a job state. Remote
     tasks are proxied locally to make their state available to the job
     controller. The task controller makes use of the
     [Klyshko Integration Interface (KII)](#klyshko-integration-interface-kii) to
@@ -61,6 +60,26 @@ to orchestrate actions across VCPs.
 ## Usage
 
 To deploy Klyshko to your VC you have to perform the following steps:
+
+### Provide VCP Configuration
+
+> **NOTE**: This is a workaround until the Carbyne Stack Operator (see
+> [CSEP-0053](https://github.com/carbynestack/carbynestack/pull/54)) is
+> available.
+
+Klyshko needs to know the overall number of VCPs in the VC and the zero-based
+index of the local VCP. This done by creating a configuration map with the
+following content:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+name: cs-vcp-config
+data:
+playerCount: <<NUMBER-OF-VCPS>>
+playerId: <<ZERO-BASED-INDEX-OF-LOCAL-VCP>>
+```
 
 ### Install the operator
 
@@ -236,7 +255,12 @@ These are made available to CRGs by the Klyshko runtime as files in folder
 The `deploy.sh` scripts in the `hack` folders (top-level and within modules) can
 be used to (re-)deploy Klyshko to a 2-party Carbyne Stack VC setup as described
 in the [tutorials](https://carbynestack.io/getting-started) on the Carbyne Stack
-website.
+website. To trigger (re-)deployment, the top-level script must be called from
+the project root folder using
+
+```shell
+./hack/deploy.sh
+```
 
 ### Logging
 
@@ -274,9 +298,8 @@ We use the following logging level convention in the Klyshko code basis.
 
 ## License
 
-Carbyne Stack *Klyshko Correlated Randomness Generation Subsystem* is
-open-sourced under the Apache License 2.0. See the [LICENSE](LICENSE) file for
-details.
+Carbyne Stack *Klyshko Correlated Randomness Generation Service* is open-sourced
+under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
 
 ### 3rd Party Licenses
 

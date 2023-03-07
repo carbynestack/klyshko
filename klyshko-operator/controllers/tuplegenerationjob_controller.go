@@ -71,17 +71,26 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	logger := r.Logger.WithValues("Job.Key", jobKey)
 	logger.V(logging.DEBUG).Info("Reconciling tuple generation jobs")
 
+	// Get local player index to be used throughout the reconciliation loop
+	playerID, err := localPlayerID(ctx, &r.Client, req.Namespace)
+	if err != nil {
+		return ctrl.Result{RequeueAfter: 60 * time.Second},
+			fmt.Errorf("can't read playerId from VCP configuration for job %v: %w", req.Name, err)
+	}
+
 	// Cleanup if job has been deleted
 	job := &klyshkov1alpha1.TupleGenerationJob{}
-	err := r.Get(ctx, req.NamespacedName, job)
+	err = r.Get(ctx, req.NamespacedName, job)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			// Job resource not available -> has been deleted
-			_, err := r.EtcdClient.Delete(ctx, jobKey.ToEtcdKey())
-			if err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to delete roster for job %v: %w", req.Name, err)
+			// Job resource not available -> has been deleted, delete etcd entry, iff we are the master
+			if playerID == 0 {
+				_, err := r.EtcdClient.Delete(ctx, jobKey.ToEtcdKey())
+				if err != nil {
+					return ctrl.Result{}, fmt.Errorf("failed to delete roster for job %v: %w", req.Name, err)
+				}
+				logger.V(logging.DEBUG).Info("Roster deleted")
 			}
-			logger.V(logging.DEBUG).Info("Roster deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -95,7 +104,6 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("failed to read resource for roster with key %v for task %v: %w", jobKey, req.Name, err)
 	}
 	if resp.Count == 0 {
-		playerID, err := localPlayerID(ctx, &r.Client, req.Namespace)
 		if playerID != 0 {
 			logger.V(logging.DEBUG).Info("Roster not available, retrying later")
 			return ctrl.Result{}, nil
@@ -114,10 +122,6 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	}
 
 	// Create local task if not existing
-	playerID, err := localPlayerID(ctx, &r.Client, req.Namespace)
-	if err != nil {
-		return ctrl.Result{RequeueAfter: 60 * time.Second}, fmt.Errorf("can't read playerId from VCP configuration for job %v: %w", req.Name, err)
-	}
 	task := &klyshkov1alpha1.TupleGenerationTask{}
 	err = r.Get(ctx, types.NamespacedName{
 		Namespace: job.Namespace,

@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"math/rand"
 	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -157,6 +158,11 @@ func (r *TupleGenerationSchedulerReconciler) cleanupFinishedJobs(ctx context.Con
 		return err
 	}
 	logger.V(logging.DEBUG).Info("Deleting finished jobs", "jobs", finishedJobs)
+	// Shuffling jobs to ensure that finished jobs do not accumulate while we try to delete
+	// the same finished job over and over again
+	rand.Shuffle(len(finishedJobs), func(i, j int) {
+		finishedJobs[i], finishedJobs[j] = finishedJobs[j], finishedJobs[i]
+	})
 	for _, j := range finishedJobs {
 		err := r.Delete(ctx, &j)
 		if err != nil {

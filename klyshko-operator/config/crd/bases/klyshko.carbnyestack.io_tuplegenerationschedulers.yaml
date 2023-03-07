@@ -13,6 +13,9 @@ spec:
     kind: TupleGenerationScheduler
     listKind: TupleGenerationSchedulerList
     plural: tuplegenerationschedulers
+    shortNames:
+    - tgs
+    - tgscheduler
     singular: tuplegenerationscheduler
   scope: Namespaced
   versions:
