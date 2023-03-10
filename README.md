@@ -2,6 +2,7 @@
 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/3a07fd83b67647138b8ea660d16cdc35)](https://www.codacy.com/gh/carbynestack/klyshko/dashboard?utm_source=github.com&utm_medium=referral&utm_content=carbynestack/klyshko&utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/carbynestack/klyshko/branch/master/graph/badge.svg?token=6hRb7xRW6C)](https://codecov.io/gh/carbynestack/klyshko)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-%23FE5196?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
