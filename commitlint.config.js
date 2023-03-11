@@ -5,20 +5,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 module.exports = {
-    extends: [
-        "@commitlint/config-conventional"
+  extends: ["@commitlint/config-conventional"],
+  rules: {
+    "scope-empty": [0, "never"],
+    "scope-enum": [
+      2,
+      "always",
+      ["mp-spdz", "operator", "operator-chart", "provisioner"],
     ],
-    rules: {
-        'scope-empty': [0, 'never'],
-        "scope-enum": [
-            2,
-            "always",
-            [
-                "mp-spdz",
-                "operator",
-                "operator-chart",
-                "provisioner"
-            ]
-        ]
-    }
-}
+  },
+};

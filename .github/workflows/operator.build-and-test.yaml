@@ -50,6 +50,7 @@ jobs:
             ${{ runner.os }}-go-
       - name: Build and Test
         run: |
+          cd klyshko-operator
           make test
       - name: Publishing Coverage
         uses: codecov/codecov-action@v3
