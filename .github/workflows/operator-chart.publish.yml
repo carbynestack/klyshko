@@ -18,8 +18,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      - name: Get tag
-        run: echo "TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Get version
+        run: echo "VERSION=${GITHUB_REF#refs/*/operator-chart-v}" >> $GITHUB_ENV
       - name: Log in to container registry
         uses: docker/login-action@v2
         with:
@@ -31,7 +31,7 @@ jobs:
         with:
           name: klyshko-operator
           repository: carbynestack
-          tag: ${{ env.TAG }}
+          tag: ${{ env.VERSION }}
           path: ${{ env.WORKING_DIRECTORY }}/charts/klyshko-operator
           registry: ${{ env.REGISTRY }}
           registry_username: ${{ github.actor }}
