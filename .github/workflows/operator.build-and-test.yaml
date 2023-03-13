@@ -21,6 +21,8 @@ jobs:
     outputs:
       operator: ${{ steps.filter.outputs.operator }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
       - name: Check whether Operator codebase (w/o chart) is affected
         uses: dorny/paths-filter@v2
         id: filter
