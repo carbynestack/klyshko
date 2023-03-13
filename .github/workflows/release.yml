@@ -17,4 +17,5 @@ jobs:
         uses: google-github-actions/release-please-action@v3
         with:
           command: manifest
+          signoff: "cs-minion <rng_cr_carbynestack@bosch.com>"
           token: ${{ secrets.CS_MINION_PAT }}
