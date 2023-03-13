@@ -25,13 +25,22 @@ jobs:
       - name: Retrieve license obligation resources
         run: |
           cd 3RD-PARTY-LICENSES
-          find . -maxdepth 1 -type d -not -path . | zip -r@ 3rd-party-copyrights
+          FILES=$(find . -maxdepth 1 -type d -not -path .)
+          if [ -n "$FILES" ]
+          then
+            echo "${FILES}" | zip -r@ 3rd-party-copyrights
+          fi
           find . -iname origin.src | \
           awk '{ \
           split($0,b,"/"); \
           system("xargs < " $0 " curl --create-dirs -Lo ./sources/" b[2] ".zip " $2)}' && \
           find -regex './sources$' | awk '{system("zip -jr ./3rd-party-sources.zip " $0)}'
-          mkdir -p ../license-obligations && mv `find . -regex "^./3rd-party-.*.zip$"` ../license-obligations/
+          mkdir -p ../license-obligations
+          ARCHIVES=$(find . -regex "^./3rd-party-.*.zip$")
+          if [ -n "$ARCHIVES" ]
+          then
+            mv $(echo "${ARCHIVES}") ../license-obligations/
+          fi
       - name: Update Release with license obligations resources
         uses: ncipollo/release-action@v1
         with:
