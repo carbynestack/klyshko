@@ -1,0 +1,24 @@
+{
+  "bump-minor-pre-major": true,
+  "separate-pull-requests": true,
+  "pull-request-title-pattern": "chore: release ${component} ${version}",
+  "pull-request-header": ":package: Staging a new release",
+  "packages": {
+    "klyshko-mp-spdz": {
+      "package-name": "mp-spdz",
+      "release-type": "simple"
+    },
+    "klyshko-operator": {
+      "package-name": "operator",
+      "release-type": "go"
+    },
+    "klyshko-operator/charts/klyshko-operator": {
+      "package-name": "operator-chart",
+      "release-type": "helm"
+    },
+    "klyshko-provisioner": {
+      "package-name": "provisioner",
+      "release-type": "simple"
+    }
+  }
+}

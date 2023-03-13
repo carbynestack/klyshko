@@ -1,0 +1,63 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: klyshko.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: TupleGenerationJob is the Schema for the TupleGenerationJob API.
+      displayName: Tuple Generation Job
+      kind: TupleGenerationJob
+      name: tuplegenerationjobs.klyshko.carbnyestack.io
+      version: v1alpha1
+    - description: TupleGenerationScheduler is the Schema for the TupleGenerationScheduler
+        API.
+      displayName: Tuple Generation Scheduler
+      kind: TupleGenerationScheduler
+      name: tuplegenerationschedulers.klyshko.carbnyestack.io
+      version: v1alpha1
+    - description: TupleGenerationTask is the Schema for the TupleGenerationTask API.
+      displayName: Tuple Generation Task
+      kind: TupleGenerationTask
+      name: tuplegenerationtasks.klyshko.carbnyestack.io
+      version: v1alpha1
+  description: Operator for the correlated randomness generation subsystem of Carbyne
+    Stack
+  displayName: Klyshko Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - Carbyne Stack
+  - Correlated Randomness
+  links:
+  - name: Klyshko
+    url: https://klyshko.domain
+  maintainers:
+  - email: sven.trieflinger@de.bosch.com
+    name: strieflin
+  - email: sebastian.becker@de.bosch.com
+    name: sbckr
+  maturity: alpha
+  provider:
+    name: Carbyne Stack community
+    url: https://github.com/carbynestack/klyshko
+  version: 0.0.0

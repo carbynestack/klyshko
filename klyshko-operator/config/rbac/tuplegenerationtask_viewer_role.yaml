@@ -1,0 +1,20 @@
+# permissions for end users to view tuplegenerationtasks.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tuplegenerationtask-viewer-role
+rules:
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationtasks
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationtasks/status
+  verbs:
+  - get

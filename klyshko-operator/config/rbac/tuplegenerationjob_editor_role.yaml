@@ -1,0 +1,24 @@
+# permissions for end users to edit tuplegenerationjobs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tuplegenerationjob-editor-role
+rules:
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationjobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationjobs/status
+  verbs:
+  - get

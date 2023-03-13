@@ -1,0 +1,24 @@
+# permissions for end users to edit tuplegenerationtasks.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: tuplegenerationtask-editor-role
+rules:
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationtasks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - klyshko.carbnyestack.io
+  resources:
+  - tuplegenerationtasks/status
+  verbs:
+  - get

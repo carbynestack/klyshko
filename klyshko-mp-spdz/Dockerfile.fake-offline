@@ -1,0 +1,24 @@
+#
+# Copyright (c) 2023 - for information on the respective copyright owner
+# see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+FROM ghcr.io/carbynestack/spdz:5350e66
+
+ARG RELEASE_PAGE="https://github.com/carbynestack/klyshko/releases"
+
+# Copy resources
+COPY 3RD-PARTY-LICENSES /3RD-PARTY-LICENSES
+COPY kii-run.sh .
+
+RUN printf "\n## Klyshko MP-SPDZ\n\
+General information about third-party software components and their licenses, \
+which are distributed with Klyshko MP-SPDZ, can be found in the \
+[SBOM](./sbom.json). Further details are available in the subfolder for the \
+respective component or can be downloaded from the \
+[Klyshko Release Page](%s).\n" "${RELEASE_PAGE}"\
+  >> /3RD-PARTY-LICENSES/disclosure.md
+
+# Run the kii-run script
+ENTRYPOINT ["/bin/bash", "-c", "./kii-run.sh"]
