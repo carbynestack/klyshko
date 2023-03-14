@@ -32,7 +32,7 @@ jobs:
           name: klyshko-operator
           repository: carbynestack
           tag: ${{ env.VERSION }}
-          path: ${{ env.WORKING_DIRECTORY }}/charts/klyshko-operator
+          path: ${{ env.WORKING_DIRECTORY }}/charts/klyshko
           registry: ${{ env.REGISTRY }}
           registry_username: ${{ github.actor }}
           registry_password: ${{ secrets.GITHUB_TOKEN }}
