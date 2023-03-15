@@ -76,10 +76,10 @@ following content:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-name: cs-vcp-config
+  name: cs-vcp-config
 data:
-playerCount: <<NUMBER-OF-VCPS>>
-playerId: <<ZERO-BASED-INDEX-OF-LOCAL-VCP>>
+  playerCount: <<NUMBER-OF-VCPS>>
+  playerId: <<ZERO-BASED-INDEX-OF-LOCAL-VCP>>
 ```
 
 ### Install the operator
@@ -102,9 +102,9 @@ make deploy IMG="carbynestack/klyshko-operator:v0.1.0"
 You can deploy the Klyshko operator using `helm` as follows:
 
 ```shell
-HELM_EXPERIMENTAL_OCI=1 helm install klyshko-operator \
-  oci://ghcr.io/carbynestack/klyshko-operator \
-  --version 0.1.0
+HELM_EXPERIMENTAL_OCI=1 helm install klyshko \
+  oci://ghcr.io/carbynestack/klyshko \
+  --version 0.1.4
 ```
 
 ### Provide the Configuration
