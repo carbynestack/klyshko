@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/carbynestack/klyshko/compare/mp-spdz-v0.1.2...mp-spdz-v0.1.3) (2023-03-15)
+
+
+### Bug Fixes
+
+* **mp-spdz/operator-chart:** trigger workflows ([#41](https://github.com/carbynestack/klyshko/issues/41)) ([bf8b9b0](https://github.com/carbynestack/klyshko/commit/bf8b9b0a51d85473d6bf785dfd0efab608124ccc))
+
 ## [0.1.2](https://github.com/carbynestack/klyshko/compare/mp-spdz-v0.1.1...mp-spdz-v0.1.2) (2023-03-15)
 
 
