@@ -23,6 +23,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Retrieve license obligation resources
+        id: license-obligations
         run: |
           cd 3RD-PARTY-LICENSES
           FILES=$(find . -maxdepth 1 -type d -not -path .)
@@ -37,12 +38,16 @@ jobs:
           find -regex './sources$' | awk '{system("zip -jr ./3rd-party-sources.zip " $0)}'
           mkdir -p ../license-obligations
           ARCHIVES=$(find . -regex "^./3rd-party-.*.zip$")
+          OBLIGATIONS_FOUND="false"
           if [ -n "$ARCHIVES" ]
           then
             mv $(echo "${ARCHIVES}") ../license-obligations/
+            OBLIGATIONS_FOUND="true"
           fi
+          echo "OBLIGATIONS_FOUND=${OBLIGATIONS_FOUND}" >> $GITHUB_OUTPUT
       - name: Update Release with license obligations resources
         uses: ncipollo/release-action@v1
+        if: steps.license-obligations.outputs.OBLIGATIONS_FOUND == "true"
         with:
           allowUpdates: true
           artifacts: ${{ env.WORKING_DIRECTORY }}/license-obligations/*
