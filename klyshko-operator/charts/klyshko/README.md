@@ -1,4 +1,4 @@
-# Klyshko Operator
+# Klyshko Operator Chart
 
 Helm chart for the Klyshko operator. [Klyshko](../../README.md) is the
 correlated randomness generation subsystem of Carbyne Stack.
@@ -6,7 +6,7 @@ correlated randomness generation subsystem of Carbyne Stack.
 ## TL;DR
 
 ```bash
-helm install klyshko-operator
+helm install klyshko
 ```
 
 ## Introduction
@@ -31,7 +31,7 @@ package manager.
 To install the chart with the release name `my-release`:
 
 ```bash
-helm install --name my-release klyshko-operator
+helm install --name my-release klyshko
 ```
 
 Make sure that your current working directory is `<project-base-dir>/charts`.
@@ -54,15 +54,15 @@ deletes the release.
 
 ## Configuration
 
-The following sections list the (main) configuration parameters of the
-`klyshko-operator` chart and their default values. For the full list of
-configuration parameters see [values.yaml](values.yaml).
+The following sections list the (main) configuration parameters of the `klyshko`
+chart and their default values. For the full list of configuration parameters
+see [values.yaml](values.yaml).
 
 Specify each parameter using the `--set key=value[,key=value]` argument to
 `helm install`. For example,
 
 ```bash
-helm install --name my-release --set controller.image.tag=<tag> klyshko-operator
+helm install --name my-release --set controller.image.tag=<tag> klyshko
 ```
 
 The above command sets the Klyshko operator controller image version to `<tag>`.
@@ -71,7 +71,7 @@ Alternatively, a YAML file that specifies the values for the parameters can be
 provided while installing the chart. For example,
 
 ```bash
-helm install --name my-release -f values.yaml klyshko-operator
+helm install --name my-release -f values.yaml klyshko
 ```
 
 ### General
