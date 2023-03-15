@@ -72,7 +72,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: ${{ env.WORKING_DIRECTORY }}
-          file: ${{ env.WORKING_DIRECTORY }}/Dockerfile
+          file: ${{ env.WORKING_DIRECTORY }}/Dockerfile.fake-offline
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
