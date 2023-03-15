@@ -47,7 +47,7 @@ jobs:
           echo "OBLIGATIONS_FOUND=${OBLIGATIONS_FOUND}" >> $GITHUB_OUTPUT
       - name: Update Release with license obligations resources
         uses: ncipollo/release-action@v1
-        if: steps.license-obligations.outputs.OBLIGATIONS_FOUND == "true"
+        if: steps.license-obligations.outputs.OBLIGATIONS_FOUND == 'true'
         with:
           allowUpdates: true
           artifacts: ${{ env.WORKING_DIRECTORY }}/license-obligations/*
