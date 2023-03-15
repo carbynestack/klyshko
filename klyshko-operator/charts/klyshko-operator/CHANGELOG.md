@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.1.1...operator-chart-v0.1.2) (2023-03-15)
+
+
+### Bug Fixes
+
+* **mp-spdz/operator-chart:** trigger workflows ([#37](https://github.com/carbynestack/klyshko/issues/37)) ([1a754c3](https://github.com/carbynestack/klyshko/commit/1a754c336d4cef441b1cbcaeb4820d034c38b90e))
+
 ## [0.1.1](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.1.0...operator-chart-v0.1.1) (2023-03-14)
 
 
