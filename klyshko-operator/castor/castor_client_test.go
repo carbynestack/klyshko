@@ -133,3 +133,19 @@ var _ = Describe("Activating a tuple chunk", func() {
 	})
 
 })
+
+var _ = When("Creating a deep copy of a telemetry struct", func() {
+	It("succeeds", func() {
+		original := &Telemetry{TupleMetrics: []TupleMetrics{
+			{
+				Available:       0,
+				ConsumptionRate: 0,
+				TupleType:       "a",
+			},
+		}}
+		deepCopy := original.DeepCopy()
+		Expect(deepCopy.TupleMetrics).To(Equal(original.TupleMetrics))
+		deepCopy.TupleMetrics[0].Available = 2
+		Expect(original.TupleMetrics[0].Available).To(Equal(0))
+	})
+})

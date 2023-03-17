@@ -57,7 +57,7 @@ func (s *LeastAvailableFirstStrategy) Schedule(ctx context.Context, telemetry ca
 			belowThreshold = append(belowThreshold, m)
 		}
 	}
-	logger.V(logging.TRACE).Info("Filtered for eligible types", "Metrics.Eligible", belowThreshold)
+	logger.V(logging.DEBUG).Info("Filtered for eligible types", "Metrics.Eligible", belowThreshold)
 
 	// Terminate early if no tuple type is below threshold
 	if len(belowThreshold) == 0 {

@@ -28,6 +28,10 @@
     "license": "Apache-2.0"
   },
   {
+    "project": "vendor/github.com/avast/retry-go/v4",
+    "license": "MIT"
+  },
+  {
     "project": "vendor/github.com/go-logr/logr",
     "license": "Apache-2.0"
   },
