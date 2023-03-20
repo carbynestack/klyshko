@@ -3,6 +3,7 @@ module github.com/carbynestack/klyshko
 go 1.16
 
 require (
+	github.com/avast/retry-go/v4 v4.3.3
 	github.com/go-logr/logr v0.4.0
 	github.com/google/uuid v1.1.2
 	github.com/jarcoal/httpmock v1.2.0

@@ -181,7 +181,7 @@ func (r *TupleGenerationSchedulerReconciler) getMatchingJobs(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	logger.V(logging.TRACE).Info("Considering potentially matching jobs", "jobs", allJobs)
+	logger.V(logging.DEBUG).Info("Considering potentially matching jobs", "jobs", allJobs)
 	var matchingJobs []klyshkov1alpha1.TupleGenerationJob
 	for _, j := range allJobs.Items {
 		if pred(j) {

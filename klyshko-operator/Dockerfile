@@ -40,6 +40,7 @@ respective component or can be downloaded from the \
 [Klyshko Release Page](%s).\n" "${RELEASE_PAGE}"\
   >> /3RD-PARTY-LICENSES/disclosure.md
 
-USER cs:cs
+#  Group and user IDs are defined in base image (non-numerical values, i.e., cs:cs, are not working in k8s)
+USER 1000:1000
 
 ENTRYPOINT ["/manager"]

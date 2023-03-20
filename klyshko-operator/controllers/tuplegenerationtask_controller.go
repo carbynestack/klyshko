@@ -79,7 +79,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, fmt.Errorf("failed to read resource for task %v: %w", req.Name, err)
 	}
-	logger.V(logging.TRACE).Info("Task exists already")
+	logger.V(logging.DEBUG).Info("Task exists already")
 
 	// Create roster entry if not existing
 	resp, err := r.EtcdClient.Get(ctx, taskKey.ToEtcdKey())
@@ -94,7 +94,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		logger.V(logging.DEBUG).Info("Roster entry created")
 	} else {
-		logger.V(logging.TRACE).Info("Roster entry exists already")
+		logger.V(logging.DEBUG).Info("Roster entry exists already")
 	}
 	status, err := r.getStatus(ctx, *taskKey)
 	if err != nil {
@@ -266,7 +266,7 @@ func (r *TupleGenerationTaskReconciler) createPVC(ctx context.Context, key *Rost
 	found := &v1.PersistentVolumeClaim{}
 	err := r.Get(ctx, name, found)
 	if err == nil {
-		logger.V(logging.TRACE).Info("Persistent volume claim already exists")
+		logger.V(logging.DEBUG).Info("Persistent volume claim already exists")
 		return nil
 	}
 	pvc := &v1.PersistentVolumeClaim{
@@ -322,7 +322,7 @@ func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context
 	}
 	found, err := r.getProvisionerPod(ctx, key)
 	if err == nil {
-		logger.V(logging.TRACE).Info("Provisioner pod already exists")
+		logger.V(logging.DEBUG).Info("Provisioner pod already exists")
 		return found, nil
 	}
 	pod := &v1.Pod{
@@ -400,7 +400,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 	logger := log.FromContext(ctx).WithValues("Task.Key", key)
 	found, err := r.getGeneratorPod(ctx, task)
 	if err == nil {
-		logger.V(logging.TRACE).Info("Pod already exists")
+		logger.V(logging.DEBUG).Info("Pod already exists")
 		return found, nil
 	}
 	vcpCount, err := numberOfVCPs(ctx, &r.Client, job.Namespace)

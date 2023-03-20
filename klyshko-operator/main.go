@@ -90,8 +90,12 @@ func main() {
 	}()
 
 	castorClient := castor.NewClient(*castorURL)
-
-	if err = controllers.NewTupleGenerationJobReconciler(mgr.GetClient(), mgr.GetScheme(), etcdClient, castorClient).SetupWithManager(mgr); err != nil {
+	if err = controllers.NewTupleGenerationJobReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		etcdClient,
+		castorClient,
+		mgr.GetLogger()).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TupleGenerationJob")
 		os.Exit(1)
 	}

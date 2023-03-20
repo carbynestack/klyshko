@@ -9,8 +9,10 @@ package controllers
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/avast/retry-go/v4"
 	klyshkov1alpha1 "github.com/carbynestack/klyshko/api/v1alpha1"
 	"github.com/carbynestack/klyshko/castor"
 	"github.com/carbynestack/klyshko/logging"
@@ -24,30 +26,35 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"time"
+)
+
+const (
+	// headsKey is the key prefix used to store the player head revisions in etcd.
+	headsKey = "/klyshko/heads"
+
+	// headRevisionOpRetryPeriod defines the duration between two attempts to store or fetch the head revision in etcd.
+	headRevisionOpRetryPeriod = 5 * time.Second
 )
 
 // TupleGenerationJobReconciler reconciles a TupleGenerationJob object.
 type TupleGenerationJobReconciler struct {
 	client.Client
-	Scheme          *runtime.Scheme
-	EtcdClient      *clientv3.Client
-	rosterWatcherCh clientv3.WatchChan
-	CastorClient    *castor.Client
-	Logger          logr.Logger
+	Scheme       *runtime.Scheme
+	EtcdClient   *clientv3.Client
+	CastorClient *castor.Client
+	Logger       logr.Logger
 }
 
 // NewTupleGenerationJobReconciler creates a TupleGenerationJobReconciler.
-func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client, castorClient *castor.Client) *TupleGenerationJobReconciler {
+func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client, castorClient *castor.Client, logger logr.Logger) *TupleGenerationJobReconciler {
 	r := &TupleGenerationJobReconciler{
-		Client:          client,
-		Scheme:          scheme,
-		EtcdClient:      etcdClient,
-		rosterWatcherCh: etcdClient.Watch(context.Background(), rosterKey, clientv3.WithPrefix()), // TODO Close channel?
-		CastorClient:    castorClient,
-		Logger:          logr.DiscardLogger{},
+		Client:       client,
+		Scheme:       scheme,
+		EtcdClient:   etcdClient,
+		CastorClient: castorClient,
+		Logger:       logger,
 	}
 	go r.handleWatchEvents()
 	return r
@@ -61,9 +68,6 @@ func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Schem
 // Reconcile compares the actual state of TupleGenerationJob resources to their desired state and performs actions to
 // bring the actual state closer to the desired one.
 func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
-	// Assigning logger to field to allow access from etcd event handling logic below
-	r.Logger = log.FromContext(ctx)
 
 	jobKey := RosterKey{
 		req.NamespacedName,
@@ -96,7 +100,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, fmt.Errorf("failed to read resource for job %v: %w", req.Name, err)
 	}
-	logger.V(logging.TRACE).Info("Job exists already")
+	logger.V(logging.DEBUG).Info("Job exists already")
 
 	// Create roster if not existing (no etcd transaction needed as remote job creation is triggered by roster creation)
 	resp, err := r.EtcdClient.Get(ctx, jobKey.ToEtcdKey())
@@ -118,7 +122,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 		logger.V(logging.DEBUG).Info("Roster created")
 	} else {
-		logger.V(logging.TRACE).Info("Roster exists already")
+		logger.V(logging.DEBUG).Info("Roster exists already")
 	}
 
 	// Create local task if not existing
@@ -144,7 +148,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		// Error reading resource, requeue
 		return ctrl.Result{}, fmt.Errorf("failed to read task resource for job %v: %w", req.Name, err)
 	}
-	logger.V(logging.TRACE).Info("Local task exists already", "Task.Name", task.Name)
+	logger.V(logging.DEBUG).Info("Local task exists already", "Task.Name", task.Name)
 
 	// Update job status based on owned task statuses; TODO That might not scale well in case we have many jobs
 	tasks := &klyshkov1alpha1.TupleGenerationTaskList{}
@@ -222,7 +226,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		}
 	}
 
-	logger.V(logging.TRACE).Info("Desired state reached")
+	logger.V(logging.DEBUG).Info("Desired state reached")
 	return ctrl.Result{}, nil
 }
 
@@ -253,12 +257,89 @@ func (r *TupleGenerationJobReconciler) taskForJob(job *klyshkov1alpha1.TupleGene
 	return task, nil
 }
 
+// getHeadRevisionKey returns the etcd key of the head revision of the local player.
+func (r *TupleGenerationJobReconciler) getHeadRevisionKey(ctx context.Context, namespace string) (string, error) {
+	playerID, err := localPlayerID(ctx, &r.Client, namespace)
+	if err != nil {
+		return "", fmt.Errorf("can't read local player ID: %w", err)
+	}
+	return fmt.Sprintf("%s/%d", headsKey, playerID), nil
+}
+
+// getHeadRevision fetches the head revisions, i.e., the revision of the last processed watch event,
+// for the local player from etcd.
+func (r *TupleGenerationJobReconciler) getHeadRevision(ctx context.Context, namespace string) (int64, error) {
+	key, err := r.getHeadRevisionKey(ctx, namespace)
+	if err != nil {
+		return 0, err
+	}
+	var rev int64
+	resp, err := r.EtcdClient.Get(ctx, key)
+	if err != nil {
+		return 0, fmt.Errorf("can't read current revision head: %w", err)
+	}
+	if resp.Count > 0 {
+		rev, _ = binary.Varint(resp.Kvs[0].Value)
+	}
+	r.Logger.V(logging.DEBUG).Info("Fetched current head revision", "revision", rev, "key", key)
+	return rev, nil
+}
+
+// setHeadRevision stores the given revision as the head revision for the local player in etcd.
+func (r *TupleGenerationJobReconciler) setHeadRevision(ctx context.Context, namespace string, revision int64) error {
+	key, err := r.getHeadRevisionKey(ctx, namespace)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 8)
+	bytesWritten := binary.PutVarint(buf, revision)
+	_, err = r.EtcdClient.Put(ctx, key, string(buf[:bytesWritten]))
+	if err != nil {
+		return fmt.Errorf("can't write revision head: %w", err)
+	}
+	r.Logger.V(logging.DEBUG).Info("Set current head revision", "revision", revision, "key", key)
+	return nil
+}
+
 // handleWatchEvents handles incoming etcd events and dispatches them individually to handleWatchEvent.
 func (r *TupleGenerationJobReconciler) handleWatchEvents() {
-	ctx := context.Background()
-	for watchResponse := range r.rosterWatcherCh {
-		for _, ev := range watchResponse.Events {
-			r.handleWatchEvent(ctx, ev)
+
+	for {
+		ctx, cancel := context.WithCancel(context.Background())
+		retrySleep := func(err error) {
+			r.Logger.Error(err,
+				"Failed to fetch / store head revision - sleeping before next attempt",
+				"Duration", headRevisionOpRetryPeriod)
+			time.Sleep(headRevisionOpRetryPeriod)
+			cancel()
+		}
+
+		// Read this players head revision and start watching for subsequent events. This will replay
+		// historical / missed events, in case the current etcd revision is higher than the head revision.
+		revision, err := r.getHeadRevision(ctx, "default")
+		if err != nil {
+			retrySleep(err)
+			continue
+		}
+		watchRev := revision + 1
+		rosterWatcherCh := r.EtcdClient.Watch(ctx, rosterKey, clientv3.WithPrefix(), clientv3.WithRev(watchRev))
+		r.Logger.V(logging.DEBUG).Info("Watch registered", "revision", watchRev, "key", rosterKey)
+
+		// Process events
+		for watchResponse := range rosterWatcherCh {
+			if watchResponse.Err() != nil {
+				r.Logger.Error(watchResponse.Err(), "watch failed - reestablishing")
+				cancel()
+				break
+			}
+			for _, ev := range watchResponse.Events {
+				r.handleWatchEvent(ctx, ev)
+			}
+			err := r.setHeadRevision(ctx, "default", watchResponse.Header.Revision)
+			if err != nil {
+				retrySleep(err)
+				break
+			}
 		}
 	}
 }
@@ -341,9 +422,11 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 	switch ev.Type {
 	case mvccpb.PUT:
 
-		// Lookup job
+		// Lookup job (requires retry as job might take small period of time to be available from API server)
 		job := &klyshkov1alpha1.TupleGenerationJob{}
-		err := r.Get(ctx, key.NamespacedName, job)
+		err := retry.Do(func() error {
+			return r.Get(ctx, key.NamespacedName, job)
+		})
 		if err != nil {
 			logger.Error(err, "Failed to read job resource")
 			return

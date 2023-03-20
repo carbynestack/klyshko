@@ -10,8 +10,5 @@ package logging
 const (
 
 	// DEBUG is the logging level giving diagnostic information in a detailed manner.
-	DEBUG = 5
-
-	// TRACE is the logging level giving all the details about the behavior of the application.
-	TRACE = 10
+	DEBUG = 1
 )

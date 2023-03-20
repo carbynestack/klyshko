@@ -119,7 +119,7 @@ func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *cli
 	castorClient := castor.NewClient(castorURL)
 	controllers := []Controller{
 		NewTupleGenerationJobReconciler(
-			k8sManager.GetClient(), k8sManager.GetScheme(), etcdClient, castorClient),
+			k8sManager.GetClient(), k8sManager.GetScheme(), etcdClient, castorClient, k8sManager.GetLogger()),
 		&TupleGenerationTaskReconciler{ // TODO Replace with constructors
 			Client:           k8sManager.GetClient(),
 			Scheme:           k8sManager.GetScheme(),
