@@ -12,7 +12,7 @@
       "package-name": "operator",
       "release-type": "go"
     },
-    "klyshko-operator/charts/klyshko-operator": {
+    "klyshko-operator/charts/klyshko": {
       "package-name": "operator-chart",
       "release-type": "helm"
     },
