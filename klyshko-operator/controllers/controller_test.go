@@ -36,13 +36,17 @@ import (
 	"time"
 )
 
-const NumberOfVCPs = 2
-const Timeout = 30 * time.Second
-const PollingInterval = 1 * time.Second
-const SchedulerNamespace = "default"
-const SchedulerName = "test-scheduler"
-const SchedulerConcurrency = 1
-const SchedulerTupleThreshold = 50000
+const (
+	NumberOfVCPs                     = 2
+	Timeout                          = 30 * time.Second
+	PollingInterval                  = 1 * time.Second
+	SchedulerNamespace               = "default"
+	SchedulerName                    = "test-scheduler"
+	SchedulerConcurrency             = 1
+	SchedulerTupleThreshold          = 50000
+	SchedulerTuplesPerJob            = 100000
+	SchedulerTTLSecondsAfterFinished = 5
+)
 
 type vcp struct {
 	cfg       *rest.Config
@@ -497,7 +501,8 @@ func createScheduler(ctx context.Context, vc *vc) *klyshkov1alpha1.TupleGenerati
 		Spec: klyshkov1alpha1.TupleGenerationSchedulerSpec{
 			Concurrency:             SchedulerConcurrency,
 			Threshold:               SchedulerTupleThreshold,
-			TTLSecondsAfterFinished: 5,
+			TuplesPerJob:            SchedulerTuplesPerJob,
+			TTLSecondsAfterFinished: SchedulerTTLSecondsAfterFinished,
 			Generator: klyshkov1alpha1.GeneratorSpec{
 				Image: "carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT",
 			},
@@ -516,5 +521,7 @@ func createScheduler(ctx context.Context, vc *vc) *klyshkov1alpha1.TupleGenerati
 	}, Timeout, PollingInterval).Should(BeTrue())
 	Expect(createdScheduler.Spec.Threshold).To(Equal(SchedulerTupleThreshold))
 	Expect(createdScheduler.Spec.Concurrency).To(Equal(SchedulerConcurrency))
+	Expect(createdScheduler.Spec.TuplesPerJob).To(Equal(SchedulerTuplesPerJob))
+	Expect(createdScheduler.Spec.TTLSecondsAfterFinished).To(Equal(SchedulerTTLSecondsAfterFinished))
 	return createdScheduler
 }

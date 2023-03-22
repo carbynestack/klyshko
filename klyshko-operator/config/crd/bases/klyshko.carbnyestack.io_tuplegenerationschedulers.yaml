@@ -73,10 +73,15 @@ spec:
                 exclusiveMinimum: true
                 minimum: 0
                 type: integer
+              tuplesPerJob:
+                exclusiveMinimum: true
+                minimum: 0
+                type: integer
             required:
             - generator
             - threshold
             - ttlSecondsAfterFinished
+            - tuplesPerJob
             type: object
           status:
             description: TupleGenerationSchedulerStatus defines the observed state

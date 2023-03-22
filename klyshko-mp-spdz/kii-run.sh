@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (c) 2022 - for information on the respective copyright owner
+# Copyright (c) 2022-2023 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -16,8 +16,8 @@ pc=${KII_PLAYER_COUNT}
 declare -A argsByType=(
   ["BIT_GFP"]="--nbits 0,${n}"
   ["BIT_GF2N"]="--nbits ${n},0"
-  ["INPUT_MASK_GFP"]="--ntriples 0,${n}"
-  ["INPUT_MASK_GF2N"]="--ntriples ${n},0"
+  ["INPUT_MASK_GFP"]="--ntriples 0,$((n/3))"
+  ["INPUT_MASK_GF2N"]="--ntriples $((n/3)),0"
   ["INVERSE_TUPLE_GFP"]="--ninverses ${n}"
   ["INVERSE_TUPLE_GF2N"]="--ninverses ${n}"
   ["SQUARE_TUPLE_GFP"]="--nsquares 0,${n}"
