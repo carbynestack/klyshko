@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 - for information on the respective copyright owner
+# Copyright (c) 2022-2023 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -10,7 +10,8 @@ metadata:
   name: tuplegenerationscheduler-sample
 spec:
   concurrency: 2
-  threshold: 50000
+  threshold: 1000000
+  tuplesPerJob: 100000
   generator:
     image: carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT
     imagePullPolicy: IfNotPresent

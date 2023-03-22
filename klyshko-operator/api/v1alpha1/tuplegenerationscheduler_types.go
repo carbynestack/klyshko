@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022 - for information on the respective copyright owner
+Copyright (c) 2022-2023 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -23,6 +23,11 @@ type TupleGenerationSchedulerSpec struct {
 	//+kubebuilder:validation:Minimum=0
 	//+kubebuilder:validation:ExclusiveMinimum=true
 	Threshold int `json:"threshold"`
+
+	//+kubebuilder:validation:Required
+	//+kubebuilder:validation:Minimum=0
+	//+kubebuilder:validation:ExclusiveMinimum=true
+	TuplesPerJob int `json:"tuplesPerJob"`
 
 	//+kubebuilder:default=600
 	//+kubebuilder:validation:Minimum=0
