@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/carbynestack/klyshko/compare/mp-spdz-v0.1.4...mp-spdz-v0.2.0) (2023-03-22)
+
+
+### Features
+
+* **operator/mp-spdz:** make number of tuples per job configurable via scheduler CRD ([#56](https://github.com/carbynestack/klyshko/issues/56)) ([90eb906](https://github.com/carbynestack/klyshko/commit/90eb906c3a9540db39b6072947e686801e1de68c))
+
 ## [0.1.4](https://github.com/carbynestack/klyshko/compare/mp-spdz-v0.1.3...mp-spdz-v0.1.4) (2023-03-15)
 
 
