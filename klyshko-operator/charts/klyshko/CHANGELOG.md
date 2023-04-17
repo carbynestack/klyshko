@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.1.6...operator-chart-v0.1.7) (2023-04-17)
+
+
+### Bug Fixes
+
+* **operator-chart:** add property definition for generated tuples per job ([f711469](https://github.com/carbynestack/klyshko/commit/f711469ff118e4508f16657456a6b6ed60667c61))
+
 ## [0.1.6](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.1.5...operator-chart-v0.1.6) (2023-03-22)
 
 
