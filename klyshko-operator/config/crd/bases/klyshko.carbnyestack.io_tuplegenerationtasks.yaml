@@ -23,6 +23,9 @@ spec:
     - jsonPath: .status.state
       name: Status
       type: string
+    - jsonPath: .status.endpoint
+      name: Endpoint
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -46,11 +49,18 @@ spec:
             type: object
           spec:
             description: TupleGenerationTaskSpec defines the desired state of a TupleGenerationTask.
+            properties:
+              playerId:
+                type: integer
+            required:
+            - playerId
             type: object
           status:
             description: TupleGenerationTaskStatus defines the observed state of a
               TupleGenerationTask.
             properties:
+              endpoint:
+                type: string
               state:
                 description: TupleGenerationTaskState encodes the state of a TupleGenerationTask.
                 type: string

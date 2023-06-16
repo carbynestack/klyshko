@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"io"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -330,7 +331,19 @@ var _ = Describe("Generating tuples", func() {
 			// jobs are created
 			setupCastorServiceResponders(math.MaxInt32, ValidTupleType)
 
-			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs)
+			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs, klyshkov1alpha1.TaskPreparing)
+
+			services := ensureServiceCreatedOnEachVcp(ctx, vc, localTasksByVCP)
+			for i, service := range services {
+				service.Status.LoadBalancer.Ingress = make([]v1.LoadBalancerIngress, 1)
+				service.Status.LoadBalancer.Ingress[0] = v1.LoadBalancerIngress{
+					IP: fmt.Sprintf("172.0.0.%d", i),
+				}
+				Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &service)).Should(Succeed())
+			}
+
+			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs, klyshkov1alpha1.TaskGenerating)
+
 			generatorPodsByVCP = ensureGeneratorPodsCreatedOnEachVcp(ctx, vc, localTasksByVCP)
 			ensureJobState(ctx, vc, scheduler, uuid.MustParse(jobs[0].Spec.ID), klyshkov1alpha1.JobRunning)
 		})
@@ -355,7 +368,7 @@ var _ = Describe("Generating tuples", func() {
 
 		Context("and the provisioner pod fails", func() {
 			It("fails", func() {
-				// Update generator pods to be in PodSucceed state
+				// Update generator pods to be in PodSucceeded state
 				for i, pod := range generatorPodsByVCP {
 					pod.Status.Phase = v1.PodSucceeded
 					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
@@ -374,7 +387,7 @@ var _ = Describe("Generating tuples", func() {
 
 		Context("the generator pod succeeds", func() {
 			It("succeeds", func() {
-				// Update generator pods to be in PodSucceed state
+				// Update generator pods to be in PodSucceeded state
 				for i, pod := range generatorPodsByVCP {
 					pod.Status.Phase = v1.PodSucceeded
 					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
@@ -382,7 +395,7 @@ var _ = Describe("Generating tuples", func() {
 
 				provisionerPodsByVCP := ensureProvisionerPodsCreatedOnEachVcp(ctx, vc, jobs, localTasksByVCP)
 
-				// Update provisioner pods to be in PodSucceed state
+				// Update provisioner pods to be in PodSucceeded state
 				for i, pod := range provisionerPodsByVCP {
 					pod.Status.Phase = v1.PodSucceeded
 					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
@@ -505,7 +518,12 @@ func ensureGeneratorPodsCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks
 
 // Ensures that tasks for the respective job resources eventually become available in each VCP of the given VC. It is
 // also checked that tasks are owned by the respective job and that the task is in the expected state.
-func ensureTasksCreatedOnEachVcp(ctx context.Context, vc *vc, scheduler *klyshkov1alpha1.TupleGenerationScheduler, jobs []klyshkov1alpha1.TupleGenerationJob) []klyshkov1alpha1.TupleGenerationTask {
+func ensureTasksCreatedOnEachVcp(
+	ctx context.Context,
+	vc *vc,
+	scheduler *klyshkov1alpha1.TupleGenerationScheduler,
+	jobs []klyshkov1alpha1.TupleGenerationJob,
+	expectedState klyshkov1alpha1.TupleGenerationTaskState) []klyshkov1alpha1.TupleGenerationTask {
 	localTasks := make([]klyshkov1alpha1.TupleGenerationTask, NumberOfVCPs)
 	for i := 0; i < NumberOfVCPs; i++ {
 		taskList := &klyshkov1alpha1.TupleGenerationTaskList{}
@@ -517,18 +535,18 @@ func ensureTasksCreatedOnEachVcp(ctx context.Context, vc *vc, scheduler *klyshko
 			if err != nil {
 				return false
 			}
-			allGenerating := true
+			allInExpectedState := true
 			for _, t := range taskList.Items {
-				allGenerating = allGenerating && (t.Status.State == klyshkov1alpha1.TaskGenerating)
+				allInExpectedState = allInExpectedState && (t.Status.State == expectedState)
 			}
-			return len(taskList.Items) == NumberOfVCPs && allGenerating
+			return len(taskList.Items) == NumberOfVCPs && allInExpectedState
 		}, Timeout, PollingInterval).Should(BeTrue())
 		for _, t := range taskList.Items {
 			if strings.HasSuffix(t.Name, fmt.Sprintf("-%d", i)) {
 				localTasks[i] = t
 			}
 		}
-		Expect(localTasks[i].Status.State).To(Equal(klyshkov1alpha1.TaskGenerating))
+		Expect(localTasks[i].Status.State).To(Equal(expectedState))
 		expectedOwnerReference := metav1.OwnerReference{
 			Kind:               jobs[i].Kind,
 			APIVersion:         jobs[i].APIVersion,
@@ -567,6 +585,26 @@ func ensureJobCreatedOnEachVcp(ctx context.Context, vc *vc, scheduler *klyshkov1
 		jobs[i] = job
 	}
 	return jobs
+}
+
+func ensureServiceCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks []klyshkov1alpha1.TupleGenerationTask) []v1.Service {
+	services := make([]v1.Service, NumberOfVCPs)
+	for i := 0; i < NumberOfVCPs; i++ {
+		name := client.ObjectKey{
+			Namespace: localTasks[i].Namespace,
+			Name:      localTasks[i].Name,
+		}
+		io.WriteString(GinkgoWriter, fmt.Sprintf("!!!!!!!!!!!!! looking for %v in %d\n", name, i))
+		Eventually(func() bool {
+			err := vc.vcps[i].k8sClient.Get(ctx, name, &services[i])
+			if err != nil {
+				return false
+			}
+			return true
+		}, Timeout, PollingInterval).Should(BeTrue())
+		Expect(services[i].Spec.Type).To(Equal(v1.ServiceTypeLoadBalancer))
+	}
+	return services
 }
 
 // Creates a scheduler and waits until it becomes available. Checks that created scheduler spec properties are as
