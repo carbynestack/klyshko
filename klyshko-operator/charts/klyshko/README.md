@@ -82,12 +82,13 @@ helm install --name my-release -f values.yaml klyshko
 
 ### Controller
 
-| Parameter                     | Description                                      | Default                                    |
-| ----------------------------- | ------------------------------------------------ | ------------------------------------------ |
-| `controller.image.registry`   | Image registry used to pull the controller image | `ghcr.io`                                  |
-| `controller.image.repository` | Controller image name                            | `carbynestack/klyshko-operator-controller` |
-| `controller.image.tag`        | Controller image tag                             | `latest`                                   |
-| `controller.image.pullPolicy` | Controller image pull policy                     | `IfNotPresent`                             |
+| Parameter                     | Description                                                     | Default                                    |
+| ----------------------------- | --------------------------------------------------------------- | ------------------------------------------ |
+| `controller.image.registry`   | Image registry used to pull the controller image                | `ghcr.io`                                  |
+| `controller.image.repository` | Controller image name                                           | `carbynestack/klyshko-operator-controller` |
+| `controller.image.tag`        | Controller image tag                                            | `latest`                                   |
+| `controller.image.pullPolicy` | Controller image pull policy                                    | `IfNotPresent`                             |
+| `controller.etcdEndpoint`     | The address of the etcd service used for cross VCP coordination | `172.18.1.129:2379`                        |
 
 ### Provisioner
 

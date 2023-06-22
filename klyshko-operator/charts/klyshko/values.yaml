@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 - for information on the respective copyright owner
+# Copyright (c) 2022-2023 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -16,6 +16,7 @@ controller:
     repository: carbynestack/klyshko-operator-controller
     pullPolicy: IfNotPresent
     tag: latest
+  etcdEndpoint: 172.18.1.129:2379
 
 provisioner:
   image:
