@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 - for information on the respective copyright owner
+# Copyright (c) 2022-2023 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -43,6 +43,7 @@ spec:
             - --leader-elect
             - --zap-log-level=info
             - --provisioner-image={{ printf "%s/%s:%s" .Values.provisioner.image.registry .Values.provisioner.image.repository .Values.provisioner.image.tag }}
+            - --etcd-endpoint={{ .Values.controller.etcdEndpoint }}
           command:
             - /manager
           image:  "{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}"
