@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.1.7...operator-chart-v0.2.0) (2023-06-23)
+
+
+### Features
+
+* **operator-chart:** Add etcd endpoint configuration value ([#66](https://github.com/carbynestack/klyshko/issues/66)) ([5c065fe](https://github.com/carbynestack/klyshko/commit/5c065fe59bfded1e2d348e36ec9c46ed9eea51b4))
+
 ## [0.1.7](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.1.6...operator-chart-v0.1.7) (2023-04-17)
 
 
