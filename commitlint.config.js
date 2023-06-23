@@ -11,7 +11,13 @@ module.exports = {
     "scope-enum": [
       2,
       "always",
-      ["mp-spdz", "operator", "operator-chart", "provisioner"],
+      [
+        "mp-spdz",
+        "mp-spdz-cowgear",
+        "operator",
+        "operator-chart",
+        "provisioner",
+      ],
     ],
   },
 };

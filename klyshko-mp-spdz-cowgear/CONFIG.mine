@@ -1,0 +1,5 @@
+ARCH = -march=native
+CXX = clang++-11
+USE_NTL = 1
+MY_CFLAGS += -I/usr/local/include
+MY_LDLIBS += -Wl,-rpath -Wl,/usr/local/lib -L/usr/local/lib -lboost_filesystem

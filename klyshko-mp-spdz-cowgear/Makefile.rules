@@ -1,0 +1,4 @@
+
+# Klyshko Cowgear CRG related rules
+cowgear-offline.x: Utils/cowgear-offline.cpp $(BOOST) $(VM) $(FHEOFFLINE) $(TINIER)
+	$(CXX) -o $@ $(CFLAGS) $^ $(LDLIBS)
