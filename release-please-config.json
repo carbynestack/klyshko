@@ -8,6 +8,10 @@
       "package-name": "mp-spdz",
       "release-type": "simple"
     },
+    "klyshko-mp-spdz-cowgear": {
+      "package-name": "mp-spdz-cowgear",
+      "release-type": "simple"
+    },
     "klyshko-operator": {
       "package-name": "operator",
       "release-type": "go"
