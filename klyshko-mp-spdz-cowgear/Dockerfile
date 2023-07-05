@@ -36,19 +36,28 @@ RUN make clean
 RUN make -j boost
 RUN make -j cowgear-offline.x
 
-# TODO Replace with compliant base image
-FROM ubuntu:22.04
+FROM ghcr.io/carbynestack/ubuntu:20.04-20210827-nonroot
 
-COPY --from=buildenv /MP-SPDZ/libSPDZ.so /usr/local/lib/
-COPY --from=buildenv /MP-SPDZ/libFHE.so /usr/local/lib/
-COPY --from=buildenv /MP-SPDZ/local/lib/libboost_filesystem.so.1.81.0 /usr/local/lib/
-COPY --from=buildenv /MP-SPDZ/local/lib/libboost_system.so.1.81.0 /usr/local/lib/
-COPY --from=buildenv /usr/lib/x86_64-linux-gnu/libboost_thread.so.1.74.0 /usr/local/lib/
-COPY --from=buildenv /usr/lib/x86_64-linux-gnu/libgmpxx.so.4 /usr/lib/x86_64-linux-gnu/
-COPY --from=buildenv /usr/lib/x86_64-linux-gnu/libgmp.so.10 /usr/lib/x86_64-linux-gnu/
-COPY --from=buildenv /usr/lib/x86_64-linux-gnu/libsodium.so.23 /usr/lib/x86_64-linux-gnu/
-COPY --from=buildenv /usr/lib/x86_64-linux-gnu/libntl.so.43 /usr/lib/x86_64-linux-gnu/
-COPY --from=buildenv /usr/lib/x86_64-linux-gnu/libssl.so.1.1 /usr/lib/x86_64-linux-gnu/
-COPY --from=buildenv /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 /usr/lib/x86_64-linux-gnu/
+# Copy shared libraries and CRG executable
+COPY --from=buildenv \
+    /MP-SPDZ/libSPDZ.so \
+    /MP-SPDZ/libFHE.so \
+    /MP-SPDZ/local/lib/libboost_filesystem.so.1.81.0 \
+    /MP-SPDZ/local/lib/libboost_system.so.1.81.0 \
+    /usr/lib/x86_64-linux-gnu/libboost_thread.so.1.74.0 \
+    /usr/local/lib/
+COPY --from=buildenv \
+    /usr/lib/x86_64-linux-gnu/libgmpxx.so.4 \
+    /usr/lib/x86_64-linux-gnu/libgmp.so.10 \
+    /usr/lib/x86_64-linux-gnu/libsodium.so.23 \
+    /usr/lib/x86_64-linux-gnu/libntl.so.43 \
+    /usr/lib/x86_64-linux-gnu/libssl.so.1.1 \
+    /usr/lib/x86_64-linux-gnu/libcrypto.so.1.1 \
+    /usr/lib/x86_64-linux-gnu/
 COPY --from=buildenv /usr/lib/x86_64-linux-gnu/libgf2x.so.3.0.0 /usr/lib/x86_64-linux-gnu/libgf2x.so.3
 COPY --from=buildenv /MP-SPDZ/cowgear-offline.x /usr/local/bin/
+
+# Copy KII resources
+COPY kii-run.sh .
+
+ENTRYPOINT ["/bin/bash", "-c", "./kii-run.sh"]
