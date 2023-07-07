@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022 - for information on the respective copyright owner
+Copyright (c) 2022-2023 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -42,9 +42,11 @@ const (
 	PollingInterval                  = 1 * time.Second
 	SchedulerNamespace               = "default"
 	SchedulerName                    = "test-scheduler"
+	ValidTupleType                   = "MULTIPLICATION_TRIPLE_GFP"
+	ConflictingTupleType             = "MULTIPLICATION_TRIPLE_GF2N"
 	SchedulerConcurrency             = 1
-	SchedulerTupleThreshold          = 50000
-	SchedulerTuplesPerJob            = 100000
+	TupleThreshold                   = 50000
+	TuplesPerJob                     = 100000
 	SchedulerTTLSecondsAfterFinished = 5
 )
 
@@ -104,6 +106,32 @@ func (vcp *vcp) deleteVCPConfig(ctx context.Context, name string, namespace stri
 	err = vcp.k8sClient.Delete(ctx, vcpConfig)
 	if err != nil {
 		Fail(fmt.Sprintf("couldn't delete VCP configuration: %s", err))
+	}
+}
+
+func (vcp *vcp) createTupleGenerator(ctx context.Context, name string, namespace string, tupleTypes []string) {
+	var supports []klyshkov1alpha1.TupleTypeSpec
+	for _, tupleType := range tupleTypes {
+		supports = append(supports, klyshkov1alpha1.TupleTypeSpec{
+			Type:      tupleType,
+			BatchSize: TuplesPerJob,
+		})
+	}
+	tupleGenerator := klyshkov1alpha1.TupleGenerator{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: klyshkov1alpha1.TupleGeneratorSpec{
+			GeneratorSpec: klyshkov1alpha1.GeneratorSpec{
+				Image: "a/b:latest",
+			},
+			Supports: supports,
+		},
+	}
+	err := vcp.k8sClient.Create(ctx, &tupleGenerator)
+	if err != nil {
+		Fail(fmt.Sprintf("couldn't create tuple generator: %s", err))
 	}
 }
 
@@ -184,6 +212,9 @@ func setupVC(ctx context.Context, numberOfVCPs int) (*vc, error) {
 			return nil, err
 		}
 
+		vcp.createTupleGenerator(ctx, "tuple-generator-a", "default", []string{ValidTupleType, ConflictingTupleType})
+		vcp.createTupleGenerator(ctx, "tuple-generator-b", "default", []string{ConflictingTupleType})
+
 		vc.vcps = append(vc.vcps, *vcp)
 	}
 	return &vc, nil
@@ -199,7 +230,7 @@ func (vc *vc) teardown() error {
 	return nil
 }
 
-func setupCastorServiceResponders(numberOfAvailableTuples int) {
+func setupCastorServiceResponders(numberOfAvailableTuples int, tupleType string) {
 	httpmock.Reset()
 	httpmock.RegisterResponder(
 		"PUT",
@@ -210,7 +241,7 @@ func setupCastorServiceResponders(numberOfAvailableTuples int) {
 		{
 			Available:       numberOfAvailableTuples,
 			ConsumptionRate: 0,
-			TupleType:       "MULTIPLICATION_TRIPLE_GFP",
+			TupleType:       tupleType,
 		},
 	}}
 	responder, err := httpmock.NewJsonResponder(200, telemetry)
@@ -221,6 +252,54 @@ func setupCastorServiceResponders(numberOfAvailableTuples int) {
 		responder,
 	)
 }
+
+var _ = Describe("In case of shortage of tuples", func() {
+
+	var (
+		ctx       context.Context
+		cancel    context.CancelFunc
+		vc        *vc
+		scheduler *klyshkov1alpha1.TupleGenerationScheduler
+	)
+
+	When("multiple generators exist for that tuple type", func() {
+
+		BeforeEach(func() {
+			ctx, cancel = context.WithCancel(context.TODO())
+			httpmock.Activate()
+			setupCastorServiceResponders(0, ConflictingTupleType)
+			var err error
+			vc, err = setupVC(ctx, NumberOfVCPs)
+			Expect(err).NotTo(HaveOccurred())
+
+			scheduler = createScheduler(ctx, vc)
+		})
+
+		AfterEach(func() {
+			cancel()
+			err := vc.teardown()
+			Expect(err).NotTo(HaveOccurred())
+			httpmock.DeactivateAndReset()
+		})
+
+		It("doesn't generate a job", func() {
+			// Ensure that no job is created on any of the VCPs
+			Consistently(func() bool {
+				jobList := &klyshkov1alpha1.TupleGenerationJobList{}
+				opts := []client.ListOption{
+					client.InNamespace(scheduler.Namespace),
+				}
+				for i := 0; i < NumberOfVCPs; i++ {
+					err := vc.vcps[i].k8sClient.List(ctx, jobList, opts...)
+					if err != nil || len(jobList.Items) > 0 {
+						return false
+					}
+				}
+				return true
+			}).WithTimeout(Timeout).WithPolling(PollingInterval).Should(BeTrue())
+		})
+	})
+})
 
 var _ = Describe("Generating tuples", func() {
 
@@ -239,7 +318,7 @@ var _ = Describe("Generating tuples", func() {
 		BeforeEach(func() {
 			ctx, cancel = context.WithCancel(context.TODO())
 			httpmock.Activate()
-			setupCastorServiceResponders(0)
+			setupCastorServiceResponders(0, ValidTupleType)
 			var err error
 			vc, err = setupVC(ctx, NumberOfVCPs)
 			Expect(err).NotTo(HaveOccurred())
@@ -249,7 +328,7 @@ var _ = Describe("Generating tuples", func() {
 
 			// Make Castor mock respond from here on with large number of available tuples, to ensure that no other
 			// jobs are created
-			setupCastorServiceResponders(math.MaxInt32)
+			setupCastorServiceResponders(math.MaxInt32, ValidTupleType)
 
 			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs)
 			generatorPodsByVCP = ensureGeneratorPodsCreatedOnEachVcp(ctx, vc, localTasksByVCP)
@@ -493,6 +572,18 @@ func ensureJobCreatedOnEachVcp(ctx context.Context, vc *vc, scheduler *klyshkov1
 // Creates a scheduler and waits until it becomes available. Checks that created scheduler spec properties are as
 // expected.
 func createScheduler(ctx context.Context, vc *vc) *klyshkov1alpha1.TupleGenerationScheduler {
+	tupleTypePolicies := []klyshkov1alpha1.TupleTypePolicy{
+		{
+			Type:      ValidTupleType,
+			Threshold: TupleThreshold,
+			Priority:  1,
+		},
+		{
+			Type:      ConflictingTupleType,
+			Threshold: TupleThreshold,
+			Priority:  1,
+		},
+	}
 	scheduler := &klyshkov1alpha1.TupleGenerationScheduler{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      SchedulerName,
@@ -500,12 +591,8 @@ func createScheduler(ctx context.Context, vc *vc) *klyshkov1alpha1.TupleGenerati
 		},
 		Spec: klyshkov1alpha1.TupleGenerationSchedulerSpec{
 			Concurrency:             SchedulerConcurrency,
-			Threshold:               SchedulerTupleThreshold,
-			TuplesPerJob:            SchedulerTuplesPerJob,
 			TTLSecondsAfterFinished: SchedulerTTLSecondsAfterFinished,
-			Generator: klyshkov1alpha1.GeneratorSpec{
-				Image: "carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT",
-			},
+			TupleTypePolicies:       tupleTypePolicies,
 		},
 	}
 	Expect(vc.vcps[0].k8sClient.Create(ctx, scheduler)).Should(Succeed())
@@ -519,9 +606,8 @@ func createScheduler(ctx context.Context, vc *vc) *klyshkov1alpha1.TupleGenerati
 		}
 		return true
 	}, Timeout, PollingInterval).Should(BeTrue())
-	Expect(createdScheduler.Spec.Threshold).To(Equal(SchedulerTupleThreshold))
 	Expect(createdScheduler.Spec.Concurrency).To(Equal(SchedulerConcurrency))
-	Expect(createdScheduler.Spec.TuplesPerJob).To(Equal(SchedulerTuplesPerJob))
+	Expect(createdScheduler.Spec.TupleTypePolicies).To(ContainElements(tupleTypePolicies))
 	Expect(createdScheduler.Spec.TTLSecondsAfterFinished).To(Equal(SchedulerTTLSecondsAfterFinished))
 	return createdScheduler
 }

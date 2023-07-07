@@ -5,31 +5,30 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 apiVersion: klyshko.carbnyestack.io/v1alpha1
-kind: TupleGenerationScheduler
+kind: TupleGenerator
 metadata:
-  name: tuplegenerationscheduler-sample
+  name: mp-spdz-lowgear
 spec:
-  concurrency: 2
-  policies:
+  image: carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT
+  imagePullPolicy: IfNotPresent
+  supports:
     - type: BIT_GFP
-      threshold: 100000
+      batchSize: 10000
     - type: INPUT_MASK_GFP
-      threshold: 100000
-      priority: 10
+      batchSize: 10000
     - type: INVERSE_TUPLE_GFP
-      threshold: 100000
+      batchSize: 10000
     - type: SQUARE_TUPLE_GFP
-      threshold: 100000
+      batchSize: 10000
     - type: MULTIPLICATION_TRIPLE_GFP
-      threshold: 100000
-      priority: 10
+      batchSize: 1000
     - type: BIT_GF2N
-      threshold: 10000
+      batchSize: 1000
     - type: INPUT_MASK_GF2N
-      threshold: 10000
+      batchSize: 1000
     - type: INVERSE_TUPLE_GF2N
-      threshold: 10000
+      batchSize: 1000
     - type: SQUARE_TUPLE_GF2N
-      threshold: 10000
+      batchSize: 1000
     - type: MULTIPLICATION_TRIPLE_GF2N
-      threshold: 10000
+      batchSize: 1000

@@ -3,4 +3,5 @@ resources:
 - klyshko_v1alpha1_tuplegenerationjob.yaml
 - klyshko_v1alpha1_tuplegenerationtask.yaml
 - klyshko_v1alpha1_tuplegenerationscheduler.yaml
+- klyshko_v1alpha1_tuplegenerator.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

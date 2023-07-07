@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022 - for information on the respective copyright owner
+# Copyright (c) 2022-2023 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -178,6 +178,24 @@ rules:
       - get
       - patch
       - update
+  - apiGroups:
+      - klyshko.carbnyestack.io
+    resources:
+      - tuplegenerators
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - klyshko.carbnyestack.io
+    resources:
+      - tuplegenerators/status
+    verbs:
+      - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

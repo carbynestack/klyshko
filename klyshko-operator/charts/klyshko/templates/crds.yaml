@@ -125,6 +125,117 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.6.1
   creationTimestamp: null
+  name: tuplegenerators.klyshko.carbnyestack.io
+spec:
+  group: klyshko.carbnyestack.io
+  names:
+    kind: TupleGenerator
+    listKind: TupleGeneratorList
+    plural: tuplegenerators
+    shortNames:
+      - tg
+      - tgenerator
+    singular: tuplegenerator
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          description: TupleGenerator is the Schema for the tuplegenerators API.
+          properties:
+            apiVersion:
+              description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+              type: string
+            kind:
+              description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: TupleGeneratorSpec defines the desired state of TupleGenerator.
+              properties:
+                generator:
+                  description: GeneratorSpec is a description of a Correlated Randomness
+                    Generator.
+                  properties:
+                    image:
+                      description: Container image name.
+                      type: string
+                    imagePullPolicy:
+                      default: IfNotPresent
+                      description: Image pull policy specifies under which circumstances
+                        the image is pulled from the registry.
+                      enum:
+                        - IfNotPresent
+                        - Always
+                        - Never
+                      type: string
+                  required:
+                    - image
+                  type: object
+                supports:
+                  items:
+                    description: TupleTypeSpec declares a tuple type a generator can
+                      generate. It also specifies a batch size that is used by the scheduler
+                      to decide how many tuples to generate in a single tuple generation
+                      job. The batch size should be selected on the one hand to be big
+                      enough to avoid "trashing", i.e., the situation where a lot of
+                      very short running jobs are generated, and on the other hand small
+                      enough to avoid starvation for other tuple types due to very long
+                      job runtimes.
+                    properties:
+                      batchSize:
+                        exclusiveMinimum: true
+                        minimum: 0
+                        type: integer
+                      type:
+                        enum:
+                          - BIT_GFP
+                          - BIT_GF2N
+                          - INPUT_MASK_GFP
+                          - INPUT_MASK_GF2N
+                          - INVERSE_TUPLE_GFP
+                          - INVERSE_TUPLE_GF2N
+                          - SQUARE_TUPLE_GFP
+                          - SQUARE_TUPLE_GF2N
+                          - MULTIPLICATION_TRIPLE_GFP
+                          - MULTIPLICATION_TRIPLE_GF2N
+                        type: string
+                    required:
+                      - batchSize
+                      - type
+                    type: object
+                  minItems: 1
+                  type: array
+              required:
+                - generator
+                - supports
+              type: object
+            status:
+              description: TupleGeneratorStatus defines the observed state of TupleGenerator.
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources:
+        status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.6.1
+  creationTimestamp: null
   name: tuplegenerationschedulers.klyshko.carbnyestack.io
 spec:
   group: klyshko.carbnyestack.io
@@ -158,39 +269,47 @@ spec:
                   default: 1
                   minimum: 0
                   type: integer
-                generator:
-                  description: GeneratorSpec is a description of a Correlated Randomness Generator.
-                  properties:
-                    image:
-                      description: Container image name.
-                      type: string
-                    imagePullPolicy:
-                      default: IfNotPresent
-                      description: Image pull policy specifies under which circumstances the image is pulled from the registry.
-                      enum:
-                        - IfNotPresent
-                        - Always
-                        - Never
-                      type: string
-                  required:
-                    - image
-                  type: object
-                threshold:
-                  exclusiveMinimum: true
-                  minimum: 0
-                  type: integer
-                tuplesPerJob:
-                  exclusiveMinimum: true
-                  minimum: 0
-                  type: integer
+                policies:
+                  items:
+                    description: TupleTypePolicy specifies the scheduling policy used
+                      for a specific tuple type.
+                    properties:
+                      priority:
+                        default: 1
+                        exclusiveMinimum: true
+                        minimum: 0
+                        type: integer
+                      threshold:
+                        exclusiveMinimum: true
+                        minimum: 0
+                        type: integer
+                      type:
+                        enum:
+                          - BIT_GFP
+                          - BIT_GF2N
+                          - INPUT_MASK_GFP
+                          - INPUT_MASK_GF2N
+                          - INVERSE_TUPLE_GFP
+                          - INVERSE_TUPLE_GF2N
+                          - SQUARE_TUPLE_GFP
+                          - SQUARE_TUPLE_GF2N
+                          - MULTIPLICATION_TRIPLE_GFP
+                          - MULTIPLICATION_TRIPLE_GF2N
+                        type: string
+                    required:
+                      - priority
+                      - threshold
+                      - type
+                    type: object
+                  minItems: 1
+                  type: array
                 ttlSecondsAfterFinished:
                   default: 600
                   exclusiveMinimum: true
                   minimum: 0
                   type: integer
               required:
-                - generator
-                - threshold
+                - policies
                 - ttlSecondsAfterFinished
               type: object
             status:
