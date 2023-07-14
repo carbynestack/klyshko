@@ -7,25 +7,20 @@
 FROM python:3.11.3-bullseye as buildenv
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    automake \
-    build-essential \
-    clang-11 \
-    cmake \
-    git \
-    libboost-dev \
-    libboost-thread-dev \
-    libclang-dev \
-    libgmp-dev \
-    libntl-dev \
-    libsodium-dev \
-    libssl-dev \
-    libtool \
-    vim \
-    gdb \
-    valgrind \
+    build-essential=12.9 \
+    clang-11=1:11.0.1-2 \
+    cmake=3.18.4-2+deb11u1 \
+    libboost-dev=1.74.0.3 \
+    libboost-thread-dev=1.74.0.3 \
+    libclang-dev=1:11.0-51+nmu5 \
+    libntl-dev=11.4.3-1+b1 \
+    libsodium-dev=1.0.18-1 \
+    libssl-dev=1.1.1n-0+deb11u5 \
+    gdb=10.1-1.7 \
+    valgrind=1:3.16.1-1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --upgrade pip ipython
+RUN pip install --upgrade pip==23.1.2 ipython==8.14.0
 
 COPY MP-SPDZ /MP-SPDZ
 COPY cowgear-offline.cpp /MP-SPDZ/Utils/cowgear-offline.cpp

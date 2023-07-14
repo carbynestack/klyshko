@@ -37,13 +37,13 @@ for ((i = 0; i < PARTIES; i++)); do
   pushd "${i}"
 	${EXECUTABLE} --number-of-parties ${PARTIES} --port $((BASE_PORT + i)) --player "${i}" --playerfile "../${PLAYER_FILE}" \
         --tuple-count "${TUPLE_COUNT}" --field-type ${FIELD_TYPE} --tuple-type ${TUPLE_TYPE} &
-	pids[${i}]=$!
+	pids[i]=$!
 	popd
 done
 
 # wait for all pids
 for pid in ${pids[*]}; do
-	wait $pid
+	wait "${pid}"
 done
 END=$(date +%s.%N)
 

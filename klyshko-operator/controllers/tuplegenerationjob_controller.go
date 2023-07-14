@@ -464,7 +464,7 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 				}
 				return
 			}
-			task.Status.State = klyshkov1alpha1.TaskPreparing // TODO Is the assumption correct that we always get the TaskPreparing event first
+			task.Status.State = klyshkov1alpha1.TaskPreparing
 			if err := r.Status().Update(ctx, task); err != nil {
 				logger.Error(err, "Failed to update task status")
 				return

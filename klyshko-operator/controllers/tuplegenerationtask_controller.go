@@ -32,7 +32,7 @@ import (
 
 const (
 	// TaskLabel is used to identify target pods for the inter-CRG service
-	TaskLabel = "task"
+	TaskLabel = "klyshko.carbnyestack.io/task-ref"
 )
 
 // TupleGenerationTaskReconciler reconciles a TupleGenerationTask object.

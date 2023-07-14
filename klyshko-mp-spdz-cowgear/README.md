@@ -6,11 +6,11 @@ Provides a Klyshko *Correlated Randomness Generator* (CRG) that uses the
 For more information on CowGear see:
 
 > Marcel Keller, Valerio Pastro, and Dragos Rotaru \
-> _Overdrive: Making SPDZ
-> Great Again_ \
+> *Overdrive: Making SPDZ
+> Great Again* \
 > Cryptology ePrint Archive, Paper 2017/1230 \
 > Available at:
-> https://eprint.iacr.org/2017/1230
+> <https://eprint.iacr.org/2017/1230>
 
 Note that we run the setup phase on each invocation of the CRG as the overhead
 is low. This will probably change in the future, when we have sorted out how to
