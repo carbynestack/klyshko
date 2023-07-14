@@ -33,6 +33,9 @@ import (
 const (
 	// TaskLabel is used to identify target pods for the inter-CRG service
 	TaskLabel = "klyshko.carbnyestack.io/task-ref"
+
+	// InterCRGNetworkingPort is the network used for inter-CRG communication.
+	InterCRGNetworkingPort = 5000
 )
 
 // TupleGenerationTaskReconciler reconciles a TupleGenerationTask object.
@@ -48,6 +51,7 @@ type TupleGenerationTaskReconciler struct {
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile compares the actual state of TupleGenerationTask resources to their desired state and performs actions to
 // bring the actual state closer to the desired one.
@@ -174,7 +178,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 				logger.V(logging.DEBUG).Info("No endpoint available yet for local task")
 				return ctrl.Result{}, nil
 			}
-			status.Endpoint = *endpoint
+			status.Endpoint = fmt.Sprintf("%s:%d", *endpoint, InterCRGNetworkingPort)
 			err = r.setStatus(ctx, *taskKey, status)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -510,6 +514,11 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 					Name:            "generator",
 					Image:           job.Spec.Generator.Image,
 					ImagePullPolicy: job.Spec.Generator.ImagePullPolicy,
+					Ports: []v1.ContainerPort{
+						{
+							ContainerPort: InterCRGNetworkingPort,
+						},
+					},
 					Env: append(
 						[]v1.EnvVar{
 							{
@@ -639,8 +648,8 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Port:       5000,
-					TargetPort: intstr.FromInt(5000),
+					Port:       InterCRGNetworkingPort,
+					TargetPort: intstr.FromInt(InterCRGNetworkingPort),
 				},
 			},
 			Selector: map[string]string{

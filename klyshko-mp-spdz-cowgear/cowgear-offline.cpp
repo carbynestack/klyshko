@@ -14,6 +14,7 @@
 #include "Protocols/CowGearOptions.h"
 #include "Protocols/CowGearShare.h"
 #include "Protocols/CowGearPrep.hpp"
+#include "Tools/Buffer.h"
 #include <fstream>
 #include <assert.h>
 #include <boost/filesystem.hpp>
@@ -39,6 +40,7 @@ void generate_tuples(Preprocessing<T> &preprocessing, Dtype tuple_type, int tupl
     ofstream fout;
     fout.open(filename, ios::binary | ios::out);
     assert(fout.is_open());
+    file_signature<T>().output(fout);
 
     // Generate and output the tuples
     std::cout << "Generating " << tuple_count << " tuples of type " << DataPositions::dtype_names[tuple_type] << std::endl;
