@@ -25,36 +25,30 @@
  * @param preprocessing The preprocessing implementation.
  * @param tuple_type The tuple type to be generated.
  * @param tuple_count The number of tuples to be generated.
- * @param tuple Container for storing elements of a tuple.
- * @param working_dir The directory within which the tuple file is created.
- * @param player_id The zero-based number of the local player.
+ * @param tuple A container for storing the elements of a tuple.
+ * @param names The network setup.
  */
 template <class T, std::size_t ELEMENTS>
-void generate_tuples(Preprocessing<T> &preprocessing, Dtype tuple_type, int tuple_count, array<T, ELEMENTS> &tuple, string &working_dir, int player_id)
+void generate_tuples(Preprocessing<T> &preprocessing, Dtype tuple_type, int tuple_count, array<T, ELEMENTS> &tuple, Names& names)
 {
 
-    // Open file to which tuples are written (equals "<DIR>/<TYPE=Triples|Squares|Bits|Inverses>-<FIELD=p|2>-P<PLAYER_ID>"")
-    char filename[2048];
-    sprintf(filename, (working_dir + "%s-%s-P%d").c_str(), DataPositions::dtype_names[tuple_type],
-            (T::type_short()).c_str(), player_id);
-    ofstream fout;
-    fout.open(filename, ios::binary | ios::out);
-    assert(fout.is_open());
-    file_signature<T>().output(fout);
+    string filename = Sub_Data_Files<T>::get_filename(names, tuple_type);
+    ofstream out(filename, ios::out | ios::binary);
+    file_signature<T>().output(out);
 
     // Generate and output the tuples
     std::cout << "Generating " << tuple_count << " tuples of type " << DataPositions::dtype_names[tuple_type] << std::endl;
-    for (int i = 1; i <= tuple_count; ++i)
+    for (int i = 0; i < tuple_count; i++)
     {
         preprocessing.get(tuple_type, tuple.data());
-        for (const T &ele : tuple)
+        for (const T &t : tuple)
         {
-            ele.output(fout, false);
+            t.output(out, false);
         }
     }
 
     std::cout << "Wrote " << tuple_count << " tuples of type " << DataPositions::dtype_names[tuple_type] << " to " << filename << std::endl;
-    fout.close();
+    out.close();
 }
 
 template <class T>
@@ -78,9 +72,7 @@ void generate_tuples(int player_id, int number_of_players, int port, int tuple_c
     T::clear::template write_setup<T>(number_of_players);
 
     // Initialize MAC key, if not existing
-    typename T::mac_key_type mac_key;
-    T::read_or_generate_mac_key(PREP_DIR, P, mac_key);
-    write_mac_key(PREP_DIR, player_id, number_of_players, mac_key);
+    auto mac_key = read_generate_write_mac_key<T>(P);
 
     // Required for keeping track of preprocessing material
     DataPositions usage(P.num_players());
@@ -97,22 +89,22 @@ void generate_tuples(int player_id, int number_of_players, int port, int tuple_c
     if (tuple_type == "bits")
     {
         array<T, 1> bit;
-        generate_tuples<T, 1>(preprocessing, DATA_BIT, tuple_count, bit, working_dir, player_id);
+        generate_tuples<T, 1>(preprocessing, DATA_BIT, tuple_count, bit, N);
     }
     else if (tuple_type == "squares")
     {
         array<T, 2> square;
-        generate_tuples<T, 2>(preprocessing, DATA_SQUARE, tuple_count, square, working_dir, player_id);
+        generate_tuples<T, 2>(preprocessing, DATA_SQUARE, tuple_count, square, N);
     }
     else if (tuple_type == "inverses")
     {
         array<T, 2> inverse;
-        generate_tuples<T, 2>(preprocessing, DATA_INVERSE, tuple_count, inverse, working_dir, player_id);
+        generate_tuples<T, 2>(preprocessing, DATA_INVERSE, tuple_count, inverse, N);
     }
     else if (tuple_type == "triples")
     {
         array<T, 3> triple;
-        generate_tuples<T, 3>(preprocessing, DATA_TRIPLE, tuple_count, triple, working_dir, player_id);
+        generate_tuples<T, 3>(preprocessing, DATA_TRIPLE, tuple_count, triple, N);
     }
     else
     {
@@ -164,6 +156,15 @@ int main(int argc, const char **argv)
         "The field type to use. One of gfp, gf2n", // Help description
         "-ft",                                     // Short name
         "--field-type"                             // Long name
+    );
+    opt.add(
+        "",                     // Default
+        0,                      // Required?
+        1,                      // Number of args expected
+        0,                      // Delimiter if expecting multiple args
+        "Prime for gfp field",  // Help description
+        "-pr",                  // Short name
+        "--prime"               // Long name
     );
     opt.add(
         "",                                                                    // Default value
@@ -220,16 +221,25 @@ int main(int argc, const char **argv)
     if (field_type == "gfp")
     {
 
+        // Read field-specific paramaters
+        string prime;
+        if (!opt.isSet("--prime")) {
+            std::cerr << "No prime given for gfp" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        opt.get("--prime")->getString(prime);
+        std::cout << "Using prime '" << prime << "'" << std::endl;
+
         // Compute number of 64-bit words needed
         const int prime_length = 128;
         const int n_limbs = (prime_length + 63) / 64;
 
-        // Define share type
-        // (first argument is counter. convention is 0 for online, 1 for offline phase)
-        typedef CowGearShare<gfp_<1, n_limbs>> T;
+        // Initialize field (first argument is counter; convention is 0 for online, 1 for offline phase)
+        typedef gfp_<1, n_limbs> F;
+        F::init_field(prime, true);
 
-        // Initialize field
-        T::clear::init_default(prime_length);
+        // Define share type
+        typedef CowGearShare<F> T;
 
         generate_tuples<T>(player_id, number_of_players, port, tuple_count, tuple_type, playerfile);
     }

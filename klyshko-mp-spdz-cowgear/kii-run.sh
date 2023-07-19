@@ -10,16 +10,17 @@
 set -e
 
 # Setup offline executable command line arguments dictionary
+prime=$(cat /etc/kii/params/prime)
 declare -A argsByType=(
-  ["BIT_GFP"]="--field-type gfp --tuple-type bits"
+  ["BIT_GFP"]="--field-type gfp --tuple-type bits --prime ${prime}"
   ["BIT_GF2N"]="--field-type gf2n --tuple-type bits"
-  ["INPUT_MASK_GFP"]="--field-type gfp --tuple-type triples"
+  ["INPUT_MASK_GFP"]="--field-type gfp --tuple-type triples --prime ${prime}"
   ["INPUT_MASK_GF2N"]="--field-type gf2n --tuple-type triples"
-  ["INVERSE_TUPLE_GFP"]="--field-type gfp --tuple-type inverses"
+  ["INVERSE_TUPLE_GFP"]="--field-type gfp --tuple-type inverses --prime ${prime}"
   ["INVERSE_TUPLE_GF2N"]="--field-type gf2n --tuple-type inverses"
-  ["SQUARE_TUPLE_GFP"]="--field-type gfp --tuple-type squares"
+  ["SQUARE_TUPLE_GFP"]="--field-type gfp --tuple-type squares --prime ${prime}"
   ["SQUARE_TUPLE_GF2N"]="--field-type gf2n --tuple-type squares"
-  ["MULTIPLICATION_TRIPLE_GFP"]="--field-type gfp --tuple-type triples"
+  ["MULTIPLICATION_TRIPLE_GFP"]="--field-type gfp --tuple-type triples --prime ${prime}"
   ["MULTIPLICATION_TRIPLE_GF2N"]="--field-type gf2n --tuple-type triples"
 )
 pn=${KII_PLAYER_NUMBER}
@@ -48,11 +49,6 @@ do
 	folder="Player-Data/${KII_PLAYER_COUNT}-${f}-${bit_width}"
 	mkdir -p "${folder}"
   echo "Providing parameters for field ${f}-${bit_width} in folder ${folder}"
-
-  # Write prime if in gfp
-  if [[ "$f" = "p" ]]; then
-    cat /etc/kii/params/prime > "${folder}/Params-Data"
-  fi
 
   # Write MAC key share
   macKeyShareFile="${folder}/Player-MAC-Keys-${f}-P${KII_PLAYER_NUMBER}"

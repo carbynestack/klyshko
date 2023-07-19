@@ -13,8 +13,9 @@ set -e
 
 BASE_PORT=10000
 PARTIES=2
+PRIME=198766463529478683931867765928436695041
 FIELD_TYPE="gfp"    # One of gfp, gf2n
-TUPLE_TYPE="squares" # One of bits, inverses, squares, triples
+TUPLE_TYPE="triples" # One of bits, inverses, squares, triples
 TUPLE_COUNT=$([[ $FIELD_TYPE = gfp ]] && echo 500000 || echo 15000)
 FOLDER="pc_${PARTIES}-ft_${FIELD_TYPE}-tt_${TUPLE_TYPE}-tc_${TUPLE_COUNT}-bp_${BASE_PORT}"
 EXECUTABLE=$(pwd)/../../../MP-SPDZ/cowgear-offline.x
@@ -36,7 +37,7 @@ for ((i = 0; i < PARTIES; i++)); do
   mkdir -p "${i}"
   pushd "${i}"
 	${EXECUTABLE} --number-of-parties ${PARTIES} --port $((BASE_PORT + i)) --player "${i}" --playerfile "../${PLAYER_FILE}" \
-        --tuple-count "${TUPLE_COUNT}" --field-type ${FIELD_TYPE} --tuple-type ${TUPLE_TYPE} &
+        --tuple-count "${TUPLE_COUNT}" --field-type ${FIELD_TYPE} --tuple-type ${TUPLE_TYPE} --prime ${PRIME} &
 	pids[i]=$!
 	popd
 done

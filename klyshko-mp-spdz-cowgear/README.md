@@ -171,6 +171,15 @@ The `hack/test` folder contains the following:
 - A Docker Compose YAML file to invoke the CRG via its KII in a 2-party setup
   (`kii` folder) that can be launched using `docker-compose up`.
 
+### Running the Tests
+
+To run the tests to check whether the CRG is working as expected, invoke:
+
+```shell
+cd test
+bats/bin/bats roundtrip.bats
+```
+
 [csep-0053]: https://github.com/carbynestack/carbynestack/pull/54
 [mp-spdz]: https://github.com/data61/MP-SPDZ
 [readme]: ../README.md
