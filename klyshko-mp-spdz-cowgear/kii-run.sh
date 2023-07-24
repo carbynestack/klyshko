@@ -9,6 +9,43 @@
 # Fail, if any command fails
 set -e
 
+#######################################
+# Retry a command up to a specific number of times until it exits successfully,
+# with exponential back off.
+#
+# Copied from https://gist.github.com/sj26/88e1c6584397bb7c13bd11108a579746
+# published under the "The Unlicense".
+#
+# Globals:
+#   None
+# Arguments:
+#   The number of retries before giving up.
+#   The command to execute, including any number of arguments.
+# Outputs:
+#   None
+# Returns:
+#   0 if command was executed successfully, status code of final failing
+#   command execution otherwise.
+#######################################
+function retry {
+  local retries=$1
+  shift
+  local count=0
+  until "$@"; do
+    exit=$?
+    wait=$((2 ** count))
+    count=$((count + 1))
+    if [ $count -lt "$retries" ]; then
+      echo "Retry $count/$retries exited $exit, retrying in $wait seconds..."
+      sleep $wait
+    else
+      echo "Retry $count/$retries exited $exit, no more retries left."
+      return $exit
+    fi
+  done
+  return 0
+}
+
 # Setup offline executable command line arguments dictionary
 prime=$(cat /etc/kii/params/prime)
 declare -A argsByType=(
@@ -71,7 +108,7 @@ sleep 10s
 
 # Execute cowgear offline phase
 cmd="cowgear-offline.x --player ${KII_PLAYER_NUMBER} --number-of-parties ${KII_PLAYER_COUNT} --playerfile ${playerFile} --tuple-count ${KII_TUPLES_PER_JOB} ${argsByType[${KII_TUPLE_TYPE}]} ${KII_PLAYER_COUNT}"
-eval "$cmd"
+retry 5 eval "$cmd"
 
 # Copy generated tuples to path expected by KII
 cp "Player-Data/${tupleFileByType[${KII_TUPLE_TYPE}]}" "${KII_TUPLE_FILE}"
