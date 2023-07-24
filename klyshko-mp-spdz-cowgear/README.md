@@ -109,6 +109,11 @@ by running
 git submodule update --init --recursive
 ```
 
+### Formatting
+
+The shell scripts provided as part of this repository *strive* to adhere to the
+formatting rules of the [Google Shell Style Guide][google-ssg].
+
 ### Building from Source
 
 You have to patch the MP-SPDZ codebase available in the `MP-SPDZ` folder with
@@ -181,5 +186,6 @@ bats/bin/bats roundtrip.bats
 ```
 
 [csep-0053]: https://github.com/carbynestack/carbynestack/pull/54
+[google-ssg]: https://google.github.io/styleguide/shellguide.html
 [mp-spdz]: https://github.com/data61/MP-SPDZ
 [readme]: ../README.md
