@@ -88,9 +88,11 @@ function create_generation_docker_compose_entry() {
     uid=$(id -u)
     local gid
     gid=$(id -g)
+    local crg_image
+    crg_image=${KLYSHKO_CRG_TEST_IMAGE:-"klyshko-mp-spdz-cowgear:latest"}
     yq "
         with(.services.player-${player};
-            .image=\"klyshko-mp-spdz-cowgear:latest\" |
+            .image=\"${crg_image}\" |
             .user=\"${uid}:${gid}\" |
             .ports=[\"$((5000 + player)):5000\"] |
             .environment=[

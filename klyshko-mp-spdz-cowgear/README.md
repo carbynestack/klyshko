@@ -181,6 +181,9 @@ cd test
 bats/bin/bats roundtrip.bats
 ```
 
+You can customize the image under test using the `KLYSHKO_CRG_TEST_IMAGE`
+environment variable.
+
 [csep-0053]: https://github.com/carbynestack/carbynestack/pull/54
 [google-ssg]: https://google.github.io/styleguide/shellguide.html
 [mp-spdz]: https://github.com/data61/MP-SPDZ
