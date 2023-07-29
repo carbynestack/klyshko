@@ -73,25 +73,25 @@ spec:
   imagePullPolicy: IfNotPresent
   supports:
     - type: BIT_GFP
-      batchSize: TBD
+      batchSize: 2064384
     - type: INPUT_MASK_GFP
-      batchSize: TBD
+      batchSize: 6291456
     - type: INVERSE_TUPLE_GFP
-      batchSize: TBD
+      batchSize: 2080000
     - type: SQUARE_TUPLE_GFP
-      batchSize: 2000000
+      batchSize: 2071616
     - type: MULTIPLICATION_TRIPLE_GFP
-      batchSize: TBD
+      batchSize: 2097152
     - type: BIT_GF2N
-      batchSize: TBD
+      batchSize: 120000
     - type: INPUT_MASK_GF2N
-      batchSize: TBD
+      batchSize: 92160
     - type: INVERSE_TUPLE_GF2N
-      batchSize: TBD
+      batchSize: 20000
     - type: SQUARE_TUPLE_GF2N
-      batchSize: 15000
+      batchSize: 30560
     - type: MULTIPLICATION_TRIPLE_GF2N
-      batchSize: 15000
+      batchSize: 30720
 ```
 
 The batch sizes are selected in a way such that the runtime of a job is roughly
