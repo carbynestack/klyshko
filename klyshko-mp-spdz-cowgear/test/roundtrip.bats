@@ -90,7 +90,7 @@ function create_generation_docker_compose_entry() {
     gid=$(id -g)
     yq "
         with(.services.player-${player};
-            .image=\"mp-spdz-cowgear:latest\" |
+            .image=\"klyshko-mp-spdz-cowgear:latest\" |
             .user=\"${uid}:${gid}\" |
             .ports=[\"$((5000 + player)):5000\"] |
             .environment=[
