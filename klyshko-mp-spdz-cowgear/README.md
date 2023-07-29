@@ -69,7 +69,7 @@ kind: TupleGenerator
 metadata:
   name: mp-spdz-cowgear-crg
 spec:
-  image: carbynestack/klyshko-mp-spdz-cowgear:0.1.0
+  image: carbynestack/klyshko-mp-spdz-cowgear:latest
   imagePullPolicy: IfNotPresent
   supports:
     - type: BIT_GFP
@@ -164,17 +164,13 @@ make -j cowgear-offline.x
 You can build the docker image as follows:
 
 ```shell
-docker build -f Dockerfile . -t mp-spdz-cowgear:latest
+docker build -f Dockerfile . -t klyshko-mp-spdz-cowgear:latest
 ```
 
-### Executing the Offline Phase
+### Standalone Execution of the Offline Phase
 
-The `hack/test` folder contains the following:
-
-- A configurable script to run the CRG locally in an N-party setup (`direct`
-  folder)
-- A Docker Compose YAML file to invoke the CRG via its KII in a 2-party setup
-  (`kii` folder) that can be launched using `docker-compose up`.
+The `hack/test/direct` folder contains a configurable script to run the CRG
+locally (independently of Klyshko) in an N-party setup.
 
 ### Running the Tests
 
