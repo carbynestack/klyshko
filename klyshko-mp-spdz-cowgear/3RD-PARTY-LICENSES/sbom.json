@@ -1,2 +1,62 @@
 [
+  {
+    "project": "https://github.com/boostorg/filesystem",
+    "license": "BSL-1.0"
+  },
+  {
+    "project": "https://github.com/boostorg/system",
+    "license": "BSL-1.0"
+  },
+  {
+    "project": "https://github.com/boostorg/thread",
+    "license": "BSL-1.0"
+  },
+  {
+    "project": "https://github.com/data61/MP-SPDZ",
+    "license": "BSD-3-Clause"
+  },
+  {
+    "project": "https://github.com/jedisct1/libsodium",
+    "license": "ISC"
+  },
+  {
+    "project": "https://github.com/libntl/ntl",
+    "license": "LGPL-2.1-or-later"
+  },
+  {
+    "project": "https://github.com/llvm/llvm-project",
+    "license": "Apache-2.0"
+  },
+  {
+    "project": "https://github.com/openssl/openssl",
+    "license": "Apache-2.0"
+  },
+  {
+    "project": "https://github.com/osu-crypto/libOTe",
+    "license": "MIT"
+  },
+  {
+    "project": "https://github.com/simd-everywhere/simde",
+    "license": "MIT"
+  },
+  {
+    "project": "https://github.com/mkskeller/SimpleOT",
+    "license": "Unlicense"
+  },
+  {
+    "project": "https://github.com/mkskeller/softspoken-implementation",
+    "license": "Unlicense"
+  },
+  {
+    "project": "https://gitlab.inria.fr/gf2x/gf2x",
+    "license": "LGPL-3.0-or-later"
+  },
+  {
+    "project": "https://gmplib.org",
+    "license": "LGPL-3.0-only"
+  },
+  {
+    "project": "https://sourceware.org/git/?p=valgrind.git",
+    "license": " GPL-2.0-only"
+  }
 ]
