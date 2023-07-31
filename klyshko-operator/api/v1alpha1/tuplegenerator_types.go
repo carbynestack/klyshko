@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// TupleTypeSpec declares a tuple type a generator can generate. It also specifies a batch size that is used by the
+// TupleTypeSpec declares a tuple type that a generator can generate. It also specifies a batch size that is used by the
 // scheduler to decide how many tuples to generate in a single tuple generation job. The batch size should be selected
 // on the one hand to be big enough to avoid "trashing", i.e., the situation where a lot of very short running jobs are
 // generated, and on the other hand small enough to avoid starvation for other tuple types due to very long job

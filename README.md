@@ -149,11 +149,11 @@ spec:
       batchSize: 100000
 ```
 
-This registers the CRG generator with Klyshko. Note that you have to specify
-each tuple type supported by the CRG and provide a recommended batch size for
-jobs that generates that type of tuples. In case a tuple type is supported by
-multiple generators no tuples are generated for that tuple type to avoid
-potential inconsistencies across VCPs.
+This registers the generator with Klyshko. Note that you have to specify each
+tuple type supported by the CRG and provide a recommended batch size for jobs
+that generate that type of tuples. In case a tuple type is supported by multiple
+generators no tuples are generated for that tuple type to avoid potential
+inconsistencies across VCPs.
 
 ### Instantiating a Scheduler
 
