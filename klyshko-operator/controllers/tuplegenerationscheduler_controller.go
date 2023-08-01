@@ -9,12 +9,14 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/carbynestack/klyshko/castor"
 	"github.com/carbynestack/klyshko/logging"
 	"github.com/google/uuid"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"math/rand"
 	"time"
 
@@ -85,15 +87,34 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{RequeueAfter: PeriodicReconciliationDuration}, err
 	}
 
-	// Decide which tuple type to generate next based on (for now fixed) strategy
-	var strategy SchedulingStrategy = &LeastAvailableFirstStrategy{Threshold: scheduler.Spec.Threshold}
-	tupleType := strategy.Schedule(ctx, telemetry, activeJobs)
+	// Collect available tuple generators into map according to their supported tuple types
+	generatorsByTupleType, err := r.getGeneratorsByTupleType(ctx)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Filter policies declared on scheduler resource by removing those policies for which no generator is available
+	policies := r.getServiceablePolicies(ctx, scheduler, generatorsByTupleType)
+
+	// Decide for which tuple type to generate tuples for next based on (for now fixed) strategy
+	var strategy SchedulingStrategy = &LotterySchedulingStrategy{}
+	tupleType := strategy.Schedule(ctx, telemetry, policies, activeJobs)
 	if tupleType == nil {
+		logger.Info("Scheduler strategy decided not to generate tuples")
 		return ctrl.Result{RequeueAfter: PeriodicReconciliationDuration}, nil
+	}
+	logger.Info("Scheduler strategy has decided to generate tuples", "TupleType", tupleType)
+
+	// Take the first tuple generator available for the given tuple type
+	var generator klyshkov1alpha1.TupleGenerator
+	if generators, exists := generatorsByTupleType[*tupleType]; exists && len(generators) > 0 {
+		generator = generators[0]
+	} else {
+		return ctrl.Result{}, fmt.Errorf("scheduler strategy returned a tuple type without an associated policy: %s", *tupleType)
 	}
 
 	// Create job for selected tuple type
-	err = r.createJob(ctx, scheduler, *tupleType)
+	err = r.createJob(ctx, scheduler, generator, *tupleType)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to create tuple generation job: %w", err)
 	}
@@ -103,10 +124,61 @@ func (r *TupleGenerationSchedulerReconciler) Reconcile(ctx context.Context, req 
 	}, nil
 }
 
+// getGeneratorsByTupleType collects available tuple generators into a map indexed by tuple type
+func (r *TupleGenerationSchedulerReconciler) getGeneratorsByTupleType(ctx context.Context) (map[string][]klyshkov1alpha1.TupleGenerator, error) {
+	generators := klyshkov1alpha1.TupleGeneratorList{}
+	err := r.Client.List(ctx, &generators)
+	if err != nil {
+		return nil, fmt.Errorf("fetching available tuple generators failed: %w", err)
+	}
+	generatorsByTupleType := map[string][]klyshkov1alpha1.TupleGenerator{}
+	for _, generator := range generators.Items {
+		for _, support := range generator.Spec.Supports {
+			if generatorsForType, exists := generatorsByTupleType[support.Type]; exists {
+				generatorsByTupleType[support.Type] = append(generatorsForType, generator)
+			} else {
+				generatorsByTupleType[support.Type] = []klyshkov1alpha1.TupleGenerator{generator}
+			}
+		}
+	}
+	return generatorsByTupleType, nil
+}
+
+// getServiceablePolicies filters the policies declared on the given scheduler resource by removing those policies for
+// which no or more than a single generator is available in the given map of generators.
+func (r *TupleGenerationSchedulerReconciler) getServiceablePolicies(
+	ctx context.Context,
+	scheduler *klyshkov1alpha1.TupleGenerationScheduler,
+	generatorsByTupleType map[string][]klyshkov1alpha1.TupleGenerator) []klyshkov1alpha1.TupleTypePolicy {
+	logger := log.FromContext(ctx)
+	var policies []klyshkov1alpha1.TupleTypePolicy
+	for _, policy := range scheduler.Spec.TupleTypePolicies {
+		if generators, exists := generatorsByTupleType[policy.Type]; exists {
+			if len(generators) > 1 {
+				logger.Info("More than one generator available for tuple type - will not be generated", "TupleType", policy.Type)
+			} else {
+				policies = append(policies, policy)
+			}
+		} else {
+			logger.Info("No generator available for tuple type - will not be generated", "TupleType", policy.Type)
+		}
+	}
+	return policies
+}
+
 // Creates a tuple generation job for the given tuple type in the namespace where the scheduler lives in.
-func (r *TupleGenerationSchedulerReconciler) createJob(ctx context.Context, scheduler *klyshkov1alpha1.TupleGenerationScheduler, tupleType string) error {
+func (r *TupleGenerationSchedulerReconciler) createJob(ctx context.Context, scheduler *klyshkov1alpha1.TupleGenerationScheduler, generator klyshkov1alpha1.TupleGenerator, tupleType string) error {
 	logger := log.FromContext(ctx)
 	jobID := uuid.New().String()
+
+	tupleTypeSpec := generator.Spec.GetTupleTypeSpec(tupleType)
+	if tupleTypeSpec == nil {
+		return errors.New(fmt.Sprintf("tuple type '%s' is not supported by generator '%s'", tupleType, types.NamespacedName{
+			Namespace: generator.Namespace,
+			Name:      generator.Name,
+		}))
+	}
+
 	job := &klyshkov1alpha1.TupleGenerationJob{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "klyshko.carbnyestack.io/v1alpha1",
@@ -119,8 +191,8 @@ func (r *TupleGenerationSchedulerReconciler) createJob(ctx context.Context, sche
 		Spec: klyshkov1alpha1.TupleGenerationJobSpec{
 			ID:        jobID,
 			Type:      tupleType,
-			Count:     scheduler.Spec.TuplesPerJob,
-			Generator: scheduler.Spec.Generator,
+			Count:     tupleTypeSpec.BatchSize,
+			Generator: generator.Spec.GeneratorSpec,
 		},
 		Status: klyshkov1alpha1.TupleGenerationJobStatus{
 			State:                   klyshkov1alpha1.JobPending,

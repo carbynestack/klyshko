@@ -28,9 +28,9 @@ the process that creates the tuples.
 
 Klyshko consists of three main components:
 
-- *Correlated Randomness Generators (CRGs)* are the workhorses within Klyshko.
-  They are actually generating correlated randomness. CRGs are packaged as
-  Docker images and have to implement the
+- *Correlated Randomness Generators (CRGs)* (kind: `TupleGenerator`) are the
+  workhorses within Klyshko. They are actually generating correlated randomness.
+  CRGs are packaged as Docker images and have to implement the
   [Klyshko Integration Interface (KII)](#klyshko-integration-interface-kii).
 - The *Klyshko Operator* coordinates the invocation of CRGs across the VCPs in a
   VC. It consists of a number of components implemented as a Kubernetes API
@@ -114,6 +114,51 @@ and secrets (see [here](#configuration-parameters) for details). Consult the
 documentation of the [MP-SPDZ CRG](klyshko-mp-spdz/README.md) for information of
 what has to be provided.
 
+### Registering a Tuple Generator
+
+After configuration is done, you can create a Tuple Generator using, e.g.,
+
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: klyshko.carbnyestack.io/v1alpha1
+kind: TupleGenerator
+metadata:
+  name: mp-spdz-fake
+spec:
+  image: carbynestack/klyshko-mp-spdz:0.2.0
+  imagePullPolicy: IfNotPresent
+  supports:
+    - type: BIT_GFP
+      batchSize: 100000
+    - type: INPUT_MASK_GFP
+      batchSize: 100000
+    - type: INVERSE_TUPLE_GFP
+      batchSize: 100000
+    - type: SQUARE_TUPLE_GFP
+      batchSize: 100000
+    - type: MULTIPLICATION_TRIPLE_GFP
+      batchSize: 100000
+    - type: BIT_GF2N
+      batchSize: 100000
+    - type: INPUT_MASK_GF2N
+      batchSize: 100000
+    - type: INVERSE_TUPLE_GF2N
+      batchSize: 100000
+    - type: SQUARE_TUPLE_GF2N
+      batchSize: 100000
+    - type: MULTIPLICATION_TRIPLE_GF2N
+      batchSize: 100000
+EOF
+```
+
+This registers the generator with Klyshko. Note that you have to specify each
+tuple type supported by the CRG and provide a recommended batch size for jobs
+that generate that type of tuples.
+
+> **IMPORTANT**: In case a tuple type is supported by multiple generators no
+> tuples are generated for that tuple type to avoid potential inconsistencies
+> across VCPs.
+
 ### Instantiating a Scheduler
 
 After configuration is done, you create a scheduler on **one** of the clusters
@@ -126,17 +171,39 @@ metadata:
   name: sample-crg-scheduler
 spec:
   concurrency: 3
-  threshold: 500000
-  generator:
-    image: carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT
-    imagePullPolicy: IfNotPresent
+  policies:
+    - type: BIT_GFP
+      threshold: 1000000
+    - type: INPUT_MASK_GFP
+      threshold: 1000000
+      priority: 10
+    - type: INVERSE_TUPLE_GFP
+      threshold: 1000000
+    - type: SQUARE_TUPLE_GFP
+      threshold: 1000000
+    - type: MULTIPLICATION_TRIPLE_GFP
+      threshold: 1000000
+      priority: 10
+    - type: BIT_GF2N
+      threshold: 100000
+    - type: INPUT_MASK_GF2N
+      threshold: 100000
+    - type: INVERSE_TUPLE_GF2N
+      threshold: 100000
+    - type: SQUARE_TUPLE_GF2N
+      threshold: 100000
+    - type: MULTIPLICATION_TRIPLE_GF2N
+      threshold: 100000
 ```
 
-Klyshko will start producing correlated randomness using the given CRG image by
-creating jobs whenever the number of tuples for a specific type drops below the
-given `threshold`. `concurrency` specifies the maximum number of jobs that are
-allowed to run concurrently. This is the upper limit across jobs for all tuple
-types.
+Klyshko will start producing correlated randomness for the given tuple types
+according to the respective *policy*. Klyshko will run CRGs in parallel as
+specified by the `concurrency` parameter. If the number of running jobs drops
+below that number, Klyshko selects the next tuple type to launch a job for using
+a lottery scheduler. The number of tickets assigned to a tuple type is specified
+by the optional `priority` parameter (default is `1` when not given). Only those
+tuple types for which less than `threshold` number of tuples are available in
+Castor are eligible for scheduling.
 
 ## Klyshko Integration Interface (KII)
 
@@ -252,6 +319,111 @@ These are made available to CRGs by the Klyshko runtime as files in folder
 [MP-SPDZ fake tuple CRG][mp-spdz-fake].
 
 ## Development
+
+### SDK-based
+
+The recommended and future-proof way to deploy Klyshko during development is by
+means of the Carbynestack SDK. You can customize the deployment logic to use
+your local Klyshko chart and images as follows:
+
+1. Build the Klyshko docker images locally using
+
+   ```shell
+   export VERSION=local-dev
+
+   # Build the MP-SPDZ fake CRG image
+   pushd klyshko-mp-spdz
+   docker build -f Dockerfile.fake-offline . -t "ghcr.io/carbynestack/klyshko-mp-spdz:${VERSION}"
+   popd
+
+   # Build the Provisioner image
+   pushd klyshko-provisioner
+   docker build -f Dockerfile . -t "ghcr.io/carbynestack/klyshko-provisioner:${VERSION}"
+   popd
+
+   # Build the Operator image
+   pushd klyshko-operator
+   make docker-build IMG="ghcr.io/carbynestack/klyshko-operator:${VERSION}"
+   popd
+   ```
+
+1. Make the SDK locally available by cloning the
+   [carbynestack/carbynestack](https://github.com/carbynestack/carbynestack)
+   repository
+
+   ```shell
+   git clone git@github.com:carbynestack/carbynestack.git sdk
+   cd sdk
+   ```
+
+1. Load the generated docker images into your kind clusters using
+
+   ```shell
+   declare -a CLUSTERS=("starbuck" "apollo")
+   for c in "${CLUSTERS[@]}"
+   do
+     kind load docker-image \
+       "ghcr.io/carbynestack/klyshko-mp-spdz:${VERSION}" \
+       "ghcr.io/carbynestack/klyshko-provisioner:${VERSION}" \
+       "ghcr.io/carbynestack/klyshko-operator:${VERSION}" \
+       --name "$c"
+   done
+   ```
+
+1. Update the Klyhsko helm chart in the SDK to use your local chart by
+   substituting the line
+
+   ```shell
+   ...
+   chart: carbynestack-oci/klyshko
+   ...
+   ```
+
+   with
+
+   ```shell
+   ...
+   chart: <YOUR_KLYSHKO_REPOSITORY_ROOT>/klyshko-operator/charts/klyshko
+   ...
+   ```
+
+   in the file `<YOUR_SDK_REPOSITORY_ROOT>/helmfile.d/0400.klyshko.yaml`.
+
+1. Deploy Carbyne Stack with your locally build artifacts via
+
+   ```shell
+   # Overwrite Klyshko images used for deployment
+   export KLYSHKO_GENERATOR_IMAGE_TAG="${VERSION}"
+   export KLYSHKO_PROVISIONER_IMAGE_TAG="${VERSION}"
+   export KLYSHKO_OPERATOR_IMAGE_TAG="${VERSION}"
+
+   # Configure deployment
+   export APOLLO_FQDN="172.18.1.128.sslip.io"
+   export STARBUCK_FQDN="172.18.2.128.sslip.io"
+   export RELEASE_NAME=cs
+   export DISCOVERY_MASTER_HOST=$APOLLO_FQDN
+   export NO_SSL_VALIDATION=true
+
+   # Deploy Starbuck
+   export FRONTEND_URL=$STARBUCK_FQDN
+   export IS_MASTER=false
+   export AMPHORA_VC_PARTNER_URI=http://$APOLLO_FQDN/amphora
+   kubectl config use-context kind-starbuck
+   helmfile apply
+
+   # Deploy Apollo
+   export FRONTEND_URL=$APOLLO_FQDN
+   export IS_MASTER=true
+   export AMPHORA_VC_PARTNER_URI=http://$STARBUCK_FQDN/amphora
+   export CASTOR_SLAVE_URI=http://$STARBUCK_FQDN/castor
+   kubectl config use-context kind-apollo
+   helmfile apply
+   ```
+
+### Script-based
+
+> **WARNING**: This method of deploying Klyshko is deprecated. The respective
+> scripts will be removed soon.
 
 The `deploy.sh` scripts in the `hack` folders (top-level and within modules) can
 be used to (re-)deploy Klyshko to a 2-party Carbyne Stack VC setup as described

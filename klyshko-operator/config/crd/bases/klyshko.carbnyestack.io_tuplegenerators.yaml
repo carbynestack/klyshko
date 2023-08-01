@@ -6,24 +6,23 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.6.1
   creationTimestamp: null
-  name: tuplegenerationschedulers.klyshko.carbnyestack.io
+  name: tuplegenerators.klyshko.carbnyestack.io
 spec:
   group: klyshko.carbnyestack.io
   names:
-    kind: TupleGenerationScheduler
-    listKind: TupleGenerationSchedulerList
-    plural: tuplegenerationschedulers
+    kind: TupleGenerator
+    listKind: TupleGeneratorList
+    plural: tuplegenerators
     shortNames:
-    - tgs
-    - tgscheduler
-    singular: tuplegenerationscheduler
+    - tg
+    - tgenerator
+    singular: tuplegenerator
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: TupleGenerationScheduler is the Schema for the TupleGenerationScheduler
-          API.
+        description: TupleGenerator is the Schema for the TupleGenerator API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -38,24 +37,39 @@ spec:
           metadata:
             type: object
           spec:
-            description: TupleGenerationSchedulerSpec defines the desired state of
-              a TupleGenerationScheduler.
+            description: TupleGeneratorSpec defines the desired state of TupleGenerator.
             properties:
-              concurrency:
-                default: 1
-                minimum: 0
-                type: integer
-              policies:
+              generator:
+                description: GeneratorSpec is a description of a Correlated Randomness
+                  Generator.
+                properties:
+                  image:
+                    description: Container image name.
+                    type: string
+                  imagePullPolicy:
+                    default: IfNotPresent
+                    description: Image pull policy specifies under which circumstances
+                      the image is pulled from the registry.
+                    enum:
+                    - IfNotPresent
+                    - Always
+                    - Never
+                    type: string
+                required:
+                - image
+                type: object
+              supports:
                 items:
-                  description: TupleTypePolicy specifies the scheduling policy used
-                    for a specific tuple type.
+                  description: TupleTypeSpec declares a tuple type that a generator
+                    can generate. It also specifies a batch size that is used by the
+                    scheduler to decide how many tuples to generate in a single tuple
+                    generation job. The batch size should be selected on the one hand
+                    to be big enough to avoid "trashing", i.e., the situation where
+                    a lot of very short running jobs are generated, and on the other
+                    hand small enough to avoid starvation for other tuple types due
+                    to very long job runtimes.
                   properties:
-                    priority:
-                      default: 1
-                      exclusiveMinimum: true
-                      minimum: 0
-                      type: integer
-                    threshold:
+                    batchSize:
                       exclusiveMinimum: true
                       minimum: 0
                       type: integer
@@ -73,24 +87,17 @@ spec:
                       - MULTIPLICATION_TRIPLE_GF2N
                       type: string
                   required:
-                  - priority
-                  - threshold
+                  - batchSize
                   - type
                   type: object
                 minItems: 1
                 type: array
-              ttlSecondsAfterFinished:
-                default: 600
-                exclusiveMinimum: true
-                minimum: 0
-                type: integer
             required:
-            - policies
-            - ttlSecondsAfterFinished
+            - generator
+            - supports
             type: object
           status:
-            description: TupleGenerationSchedulerStatus defines the observed state
-              of a TupleGenerationScheduler.
+            description: TupleGeneratorStatus defines the observed state of TupleGenerator.
             type: object
         type: object
     served: true
