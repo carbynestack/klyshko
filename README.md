@@ -116,9 +116,10 @@ what has to be provided.
 
 ### Registering a Tuple Generator
 
-After configuration is done, you can create a Tuple Generator, e.g.,
+After configuration is done, you can create a Tuple Generator using, e.g.,
 
-```yaml
+```shell
+cat <<EOF | kubectl apply -f -
 apiVersion: klyshko.carbnyestack.io/v1alpha1
 kind: TupleGenerator
 metadata:
@@ -147,13 +148,16 @@ spec:
       batchSize: 100000
     - type: MULTIPLICATION_TRIPLE_GF2N
       batchSize: 100000
+EOF
 ```
 
 This registers the generator with Klyshko. Note that you have to specify each
 tuple type supported by the CRG and provide a recommended batch size for jobs
-that generate that type of tuples. In case a tuple type is supported by multiple
-generators no tuples are generated for that tuple type to avoid potential
-inconsistencies across VCPs.
+that generate that type of tuples.
+
+> **IMPORTANT**: In case a tuple type is supported by multiple generators no
+> tuples are generated for that tuple type to avoid potential inconsistencies
+> across VCPs.
 
 ### Instantiating a Scheduler
 

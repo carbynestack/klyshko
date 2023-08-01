@@ -22,7 +22,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: TupleGenerator is the Schema for the tuplegenerators API.
+        description: TupleGenerator is the Schema for the TupleGenerator API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -60,14 +60,14 @@ spec:
                 type: object
               supports:
                 items:
-                  description: TupleTypeSpec declares a tuple type a generator can
-                    generate. It also specifies a batch size that is used by the scheduler
-                    to decide how many tuples to generate in a single tuple generation
-                    job. The batch size should be selected on the one hand to be big
-                    enough to avoid "trashing", i.e., the situation where a lot of
-                    very short running jobs are generated, and on the other hand small
-                    enough to avoid starvation for other tuple types due to very long
-                    job runtimes.
+                  description: TupleTypeSpec declares a tuple type that a generator
+                    can generate. It also specifies a batch size that is used by the
+                    scheduler to decide how many tuples to generate in a single tuple
+                    generation job. The batch size should be selected on the one hand
+                    to be big enough to avoid "trashing", i.e., the situation where
+                    a lot of very short running jobs are generated, and on the other
+                    hand small enough to avoid starvation for other tuple types due
+                    to very long job runtimes.
                   properties:
                     batchSize:
                       exclusiveMinimum: true

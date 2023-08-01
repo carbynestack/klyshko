@@ -52,7 +52,7 @@ type TupleGeneratorStatus struct {
 //+kubebuilder:resource:shortName=tg;tgenerator
 //+kubebuilder:subresource:status
 
-// TupleGenerator is the Schema for the tuplegenerators API.
+// TupleGenerator is the Schema for the TupleGenerator API.
 type TupleGenerator struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

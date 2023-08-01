@@ -145,7 +145,7 @@ func (r *TupleGenerationSchedulerReconciler) getGeneratorsByTupleType(ctx contex
 }
 
 // getServiceablePolicies filters the policies declared on the given scheduler resource by removing those policies for
-// which no generator is available in the given map of generators
+// which no or more than a single generator is available in the given map of generators.
 func (r *TupleGenerationSchedulerReconciler) getServiceablePolicies(
 	ctx context.Context,
 	scheduler *klyshkov1alpha1.TupleGenerationScheduler,
