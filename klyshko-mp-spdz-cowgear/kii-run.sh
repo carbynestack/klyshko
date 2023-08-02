@@ -103,9 +103,6 @@ do
   echo ${!endpointEnvName}
 done >> ${playerFile}
 
-# TODO Remove this as soon as we have something in place to ensure that the "network is ready"
-sleep 10s
-
 # Execute cowgear offline phase
 cmd="cowgear-offline.x --player ${KII_PLAYER_NUMBER} --number-of-parties ${KII_PLAYER_COUNT} --playerfile ${playerFile} --tuple-count ${KII_TUPLES_PER_JOB} ${argsByType[${KII_TUPLE_TYPE}]} ${KII_PLAYER_COUNT}"
 retry 5 eval "$cmd"
