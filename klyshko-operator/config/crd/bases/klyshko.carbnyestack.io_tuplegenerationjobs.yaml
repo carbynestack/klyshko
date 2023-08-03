@@ -53,31 +53,21 @@ spec:
             description: TupleGenerationJobSpec defines the desired state of a TupleGenerationJob.
             properties:
               count:
+                description: Count specifies the number of tuples to be generated
+                  by this job.
                 exclusiveMinimum: true
                 minimum: 0
                 type: integer
-              generator:
-                description: GeneratorSpec is a description of a Correlated Randomness
-                  Generator.
-                properties:
-                  image:
-                    description: Container image name.
-                    type: string
-                  imagePullPolicy:
-                    default: IfNotPresent
-                    description: Image pull policy specifies under which circumstances
-                      the image is pulled from the registry.
-                    enum:
-                    - IfNotPresent
-                    - Always
-                    - Never
-                    type: string
-                required:
-                - image
-                type: object
+              generatorRef:
+                description: Generator is the name of the TupleGenerator that should
+                  be used for tuple generation by this job.
+                type: string
               id:
+                description: ID is the unique identifier of this job.
                 type: string
               type:
+                description: Type specifies the type of the tuples to be generated
+                  by this job.
                 enum:
                 - BIT_GFP
                 - BIT_GF2N
@@ -92,7 +82,7 @@ spec:
                 type: string
             required:
             - count
-            - generator
+            - generatorRef
             - id
             - type
             type: object

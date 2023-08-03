@@ -9,8 +9,11 @@ kind: TupleGenerator
 metadata:
   name: mp-spdz-lowgear
 spec:
-  image: carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT
-  imagePullPolicy: IfNotPresent
+  template:
+    spec:
+      container:
+        image: carbynestack/klyshko-mp-spdz:1.0.0-SNAPSHOT
+        imagePullPolicy: IfNotPresent
   supports:
     - type: BIT_GFP
       batchSize: 10000

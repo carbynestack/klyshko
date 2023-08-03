@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0](https://github.com/carbynestack/klyshko/compare/operator-v0.2.0...operator-v0.3.0) (2023-08-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* **operator:** implement pod template support ([#86](https://github.com/carbynestack/klyshko/issues/86))
+* **operator/operator-chart/mp-spdz-cowgear:** add support for inter-CRG networking and CowGear CRG ([#65](https://github.com/carbynestack/klyshko/issues/65))
+* **operator/operator-chart:** add tuple generator CRG and support for tuple-type-specific thresholds and priorities ([#70](https://github.com/carbynestack/klyshko/issues/70))
+
+### Features
+
+* **operator/operator-chart/mp-spdz-cowgear:** add support for inter-CRG networking and CowGear CRG ([#65](https://github.com/carbynestack/klyshko/issues/65)) ([e356440](https://github.com/carbynestack/klyshko/commit/e356440f8b9bd5a7452ae0b9476e101bfc6926bc))
+* **operator/operator-chart:** add tuple generator CRG and support for tuple-type-specific thresholds and priorities ([#70](https://github.com/carbynestack/klyshko/issues/70)) ([e216603](https://github.com/carbynestack/klyshko/commit/e2166031ed57fd9c982f0f8ed697f3dfa4d4aabd))
+* **operator:** implement pod template support ([#86](https://github.com/carbynestack/klyshko/issues/86)) ([c1ea1f4](https://github.com/carbynestack/klyshko/commit/c1ea1f47b1fab7a7220e919aa62d0acf67989670)), closes [#73](https://github.com/carbynestack/klyshko/issues/73)
+
 ## [0.2.0](https://github.com/carbynestack/klyshko/compare/operator-v0.1.1...operator-v0.2.0) (2023-03-22)
 
 

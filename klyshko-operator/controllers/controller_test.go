@@ -20,6 +20,7 @@ import (
 	"io"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -110,6 +111,36 @@ func (vcp *vcp) deleteVCPConfig(ctx context.Context, name string, namespace stri
 	}
 }
 
+var testSpec = klyshkov1alpha1.TupleGeneratorPodTemplateSpec{
+	Spec: klyshkov1alpha1.TupleGeneratorPodSpec{
+		Affinity: &v1.Affinity{
+			NodeAffinity: &v1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+					NodeSelectorTerms: []v1.NodeSelectorTerm{
+						{
+							MatchExpressions: []v1.NodeSelectorRequirement{
+								{
+									Key:      "node-label-key",
+									Operator: v1.NodeSelectorOpIn,
+									Values:   []string{"node-label-value"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		Container: klyshkov1alpha1.TupleGeneratorContainer{
+			Image:           "a/b:latest",
+			ImagePullPolicy: v1.PullAlways,
+			Resources: v1.ResourceRequirements{
+				Requests: v1.ResourceList{
+					v1.ResourceName("cpu"): resource.MustParse("5Gi"),
+				},
+			},
+		},
+	},
+}
+
 func (vcp *vcp) createTupleGenerator(ctx context.Context, name string, namespace string, tupleTypes []string) {
 	var supports []klyshkov1alpha1.TupleTypeSpec
 	for _, tupleType := range tupleTypes {
@@ -124,9 +155,7 @@ func (vcp *vcp) createTupleGenerator(ctx context.Context, name string, namespace
 			Namespace: namespace,
 		},
 		Spec: klyshkov1alpha1.TupleGeneratorSpec{
-			GeneratorSpec: klyshkov1alpha1.GeneratorSpec{
-				Image: "a/b:latest",
-			},
+			Template: testSpec,
 			Supports: supports,
 		},
 	}
@@ -504,9 +533,10 @@ func ensureProvisionerPodsCreatedOnEachVcp(ctx context.Context, vc *vc, jobs []k
 }
 
 // Ensures that generator pods associated with the respective tasks eventually become available in each VCP of the
-// given VC. In addition, it is checked that the pod is owned by the respective task.
+// given VC. In addition, it is checked that the pod is owned by the respective task and that spec elements are as
+// expected.
 func ensureGeneratorPodsCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks []klyshkov1alpha1.TupleGenerationTask) []v1.Pod {
-	return ensurePodsCreatedOnEachVcp(ctx, vc, func(i int) types.NamespacedName {
+	pods := ensurePodsCreatedOnEachVcp(ctx, vc, func(i int) types.NamespacedName {
 		return types.NamespacedName{
 			Namespace: localTasks[i].Namespace,
 			Name:      localTasks[i].Name,
@@ -514,6 +544,14 @@ func ensureGeneratorPodsCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks
 	}, func(i int) client.Object {
 		return &localTasks[i]
 	})
+	for _, pod := range pods {
+		Expect(pod.Spec.Affinity).To(Equal(testSpec.Spec.Affinity))
+		Expect(pod.Spec.Containers).To(HaveLen(1))
+		Expect(pod.Spec.Containers[0].Image).To(Equal(testSpec.Spec.Container.Image))
+		Expect(pod.Spec.Containers[0].ImagePullPolicy).To(Equal(testSpec.Spec.Container.ImagePullPolicy))
+		Expect(pod.Spec.Containers[0].Resources).To(Equal(testSpec.Spec.Container.Resources))
+	}
+	return pods
 }
 
 // Ensures that tasks for the respective job resources eventually become available in each VCP of the given VC. It is
@@ -582,6 +620,7 @@ func ensureJobCreatedOnEachVcp(ctx context.Context, vc *vc, scheduler *klyshkov1
 		if i > 0 {
 			Expect(job.Spec.ID).To(Equal(jobs[0].Spec.ID))
 		}
+		Expect(job.Spec.Generator).To(Equal("tuple-generator-a"))
 		jobs[i] = job
 	}
 	return jobs
