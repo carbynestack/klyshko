@@ -135,7 +135,7 @@ int main(int argc, const char **argv)
         1,                                                   // Required?
         1,                                                   // Number of values expected
         0,                                                   // Delimiter, if expecting multiple args
-        "This player's number, starting with 0 (required).", // Help description
+        "The number of this player, starting with 0 (required).", // Help description
         "-p",                                                // Short name
         "--player"                                           // Long name
     );

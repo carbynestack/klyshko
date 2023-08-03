@@ -142,7 +142,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 	case klyshkov1alpha1.TaskPreparing:
 
 		// Create persistent volume claim used to store generated tuples, if not existing
-		err = r.getOrCreatePVC(ctx, taskKey)
+		_, err = r.getOrCreatePVC(ctx, taskKey)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to create PVC for task %v: %w", req.Name, err)
 		}
@@ -330,7 +330,7 @@ func pvcName(key RosterEntryKey) string {
 }
 
 // getOrCreatePVC creates a PVC used to transfer tuples between generator and provision pod for a task with the given key.
-func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key *RosterEntryKey) error {
+func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key *RosterEntryKey) (*v1.PersistentVolumeClaim, error) {
 	logger := log.FromContext(ctx).WithValues("Task.Key", key)
 	name := types.NamespacedName{
 		Name:      pvcName(*key),
@@ -340,7 +340,7 @@ func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key 
 	err := r.Get(ctx, name, found)
 	if err == nil {
 		logger.V(logging.DEBUG).Info("Persistent volume claim already exists")
-		return nil
+		return found, nil
 	}
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -361,9 +361,9 @@ func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key 
 	logger.V(logging.DEBUG).Info("Creating persistent volume claim", "PVC", pvc)
 	err = r.Create(ctx, pvc)
 	if err != nil {
-		return fmt.Errorf("persistent volume claim creation failed for task %v: %w", key, err)
+		return nil, fmt.Errorf("persistent volume claim creation failed for task %v: %w", key, err)
 	}
-	return nil
+	return pvc, nil
 }
 
 // provisionerPodName returns the name for the provisioner pod used for the task with the given key.
@@ -628,6 +628,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 	return pod, nil
 }
 
+// getOrCreateService creates (if not existing) the service to expose the CRG endpoint fot inter-CRG networking.
 func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, key *RosterEntryKey, task *klyshkov1alpha1.TupleGenerationTask) (*v1.Service, error) {
 	logger := log.FromContext(ctx).WithValues("Task.Key", key)
 	name := types.NamespacedName{
