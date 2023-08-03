@@ -13,6 +13,8 @@ on:
   pull_request:
     branches:
       - 'master'
+env:
+  WORKING_DIRECTORY: klyshko-operator
 jobs:
   changes:
     runs-on: ubuntu-22.04
@@ -29,8 +31,8 @@ jobs:
         with:
           filters: |
             operator:
-              - 'klyshko-operator/!(charts/**)/**'
-  test:
+              - '${{ env.WORKING_DIRECTORY }}/!(charts/**)/**'
+  operator-test:
     runs-on: ubuntu-22.04
     needs: changes
     if: ${{ needs.changes.outputs.operator == 'true' }}
@@ -38,24 +40,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: '1.16'
-      - name: Setup Build Cache
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version-file: ${{ env.WORKING_DIRECTORY }}/go.mod
+          cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/go.sum
       - name: Build and Test
+        working-directory: ${{ env.WORKING_DIRECTORY }}
         run: |
-          cd klyshko-operator
           make test
       - name: Publishing Coverage
         uses: codecov/codecov-action@v3
         with:
+          files: ${{ env.WORKING_DIRECTORY }}/cover.out
           token: ${{ secrets.CODECOV_TOKEN }}
           name: codecov
+  # This is required to allow for setting the test job as required in scenarios
+  # where the tests are not actually run, e.g., when there are no changes to
+  # the relevant codebase
+  operator-test-status:
+    runs-on: ubuntu-22.04
+    needs: operator-test
+    if: '!cancelled()' # Makes the job run regardless whether 'operator-test' succeeds or not but allows for cancellation
+    steps:
+      - name: Tests successful
+        if: ${{ !(contains(needs.operator-test.result, 'failure')) }}
+        run: exit 0
+      - name: Tests failed
+        if: ${{ contains(needs.operator-test.result, 'failure') }}
+        run: exit 1

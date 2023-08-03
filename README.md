@@ -336,6 +336,11 @@ your local Klyshko chart and images as follows:
    docker build -f Dockerfile.fake-offline . -t "ghcr.io/carbynestack/klyshko-mp-spdz:${VERSION}"
    popd
 
+   # and the MP-SDPZ CowGear CRG image
+   pushd klyshko-mp-spdz-cowgear
+   docker build -f Dockerfile . -t "ghcr.io/carbynestack/klyshko-mp-spdz-cowgear:${VERSION}"
+   popd
+
    # Build the Provisioner image
    pushd klyshko-provisioner
    docker build -f Dockerfile . -t "ghcr.io/carbynestack/klyshko-provisioner:${VERSION}"
@@ -364,6 +369,7 @@ your local Klyshko chart and images as follows:
    do
      kind load docker-image \
        "ghcr.io/carbynestack/klyshko-mp-spdz:${VERSION}" \
+       "ghcr.io/carbynestack/klyshko-mp-spdz-cowgear:${VERSION}" \
        "ghcr.io/carbynestack/klyshko-provisioner:${VERSION}" \
        "ghcr.io/carbynestack/klyshko-operator:${VERSION}" \
        --name "$c"

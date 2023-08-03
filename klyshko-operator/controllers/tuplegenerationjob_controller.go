@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022 - for information on the respective copyright owner
+Copyright (c) 2022-2023 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 	"time"
 )
 
@@ -129,7 +128,7 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	task := &klyshkov1alpha1.TupleGenerationTask{}
 	err = r.Get(ctx, types.NamespacedName{
 		Namespace: job.Namespace,
-		Name:      r.taskNameForJob(job, playerID),
+		Name:      taskNameForJob(job, playerID),
 	}, task)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -230,24 +229,16 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 	return ctrl.Result{}, nil
 }
 
-// taskNameForJob returns the name of the task for a given player associated with the given job.
-func (r *TupleGenerationJobReconciler) taskNameForJob(job *klyshkov1alpha1.TupleGenerationJob, playerID uint) string {
-	return r.taskName(job.Name, playerID)
-}
-
-// taskName returns the name of the task for a given player derived from a given job name.
-func (r *TupleGenerationJobReconciler) taskName(jobName string, playerID uint) string {
-	return jobName + "-" + strconv.Itoa(int(playerID))
-}
-
 // taskForJob assembles the TupleGenerationJob resource description for the given job and VCP.
 func (r *TupleGenerationJobReconciler) taskForJob(job *klyshkov1alpha1.TupleGenerationJob, playerID uint) (*klyshkov1alpha1.TupleGenerationTask, error) {
 	task := &klyshkov1alpha1.TupleGenerationTask{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.taskNameForJob(job, playerID),
+			Name:      taskNameForJob(job, playerID),
 			Namespace: job.Namespace,
 		},
-		Spec:   klyshkov1alpha1.TupleGenerationTaskSpec{},
+		Spec: klyshkov1alpha1.TupleGenerationTaskSpec{
+			PlayerID: playerID,
+		},
 		Status: klyshkov1alpha1.TupleGenerationTaskStatus{},
 	}
 	err := ctrl.SetControllerReference(job, task, r.Scheme)
@@ -433,7 +424,7 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 		}
 		taskName := types.NamespacedName{
 			Namespace: key.Namespace,
-			Name:      r.taskNameForJob(job, key.PlayerID),
+			Name:      taskNameForJob(job, key.PlayerID),
 		}
 
 		found := &klyshkov1alpha1.TupleGenerationTask{}
@@ -473,13 +464,18 @@ func (r *TupleGenerationJobReconciler) handleRemoteTaskUpdate(ctx context.Contex
 				}
 				return
 			}
+			task.Status.State = klyshkov1alpha1.TaskPreparing
+			if err := r.Status().Update(ctx, task); err != nil {
+				logger.Error(err, "Failed to update task status")
+				return
+			}
 			logger.V(logging.DEBUG).Info("Proxy task created")
 		}
 	case mvccpb.DELETE:
 		// Delete task for job if exists
 		taskName := types.NamespacedName{
 			Namespace: key.Namespace,
-			Name:      r.taskName(key.Name, key.PlayerID),
+			Name:      taskName(key.Name, key.PlayerID),
 		}
 		task := &klyshkov1alpha1.TupleGenerationTask{}
 		err := r.Get(ctx, taskName, task)

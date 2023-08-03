@@ -1,0 +1,92 @@
+#
+# Copyright (c) 2023 - for information on the respective copyright owner
+# see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+name: Build and test MP-SPDZ CowGear CRG
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'master'
+  pull_request:
+    branches:
+      - 'master'
+env:
+  IMAGE_REPOSITORY: localhost:15000/carbynestack/klyshko-mp-spdz-cowgear
+  WORKING_DIRECTORY: klyshko-mp-spdz-cowgear
+jobs:
+  changes:
+    runs-on: ubuntu-22.04
+    permissions:
+      pull-requests: read
+    outputs:
+      mp-spdz-cowgear: ${{ steps.filter.outputs.mp-spdz-cowgear }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Check whether MP-SPDZ CowGear codebase is affected
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            mp-spdz-cowgear:
+              - '${{ env.WORKING_DIRECTORY }}/**'
+  mp-spdz-cowgear-test:
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: ${{ needs.changes.outputs.mp-spdz-cowgear == 'true' }}
+    services:
+      # Local docker registry to avoid publishing test image
+      registry:
+        image: registry:2
+        ports:
+          - 15000:5000
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Set up Docker buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver-opts: network=host
+      - name: Detect Architecture
+        # We need this to ensure that we are not caching CRG docker images optimized for the wrong CPU architecture
+        # which would result in a core dump due to illegal instructions when running the image on a machine with
+        # another architecture
+        run: |
+          ARCH=$(gcc -march=native -Q --help=target | grep -- '  -march=' | cut -f3)
+          echo "FULL_IMAGE_TAG=${{ env.IMAGE_REPOSITORY }}:${ARCH}" >> $GITHUB_ENV
+          sed -i "s/march=native/march=${ARCH}/" ${{ env.WORKING_DIRECTORY }}/CONFIG.mine
+      - name: Build docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: ${{ env.WORKING_DIRECTORY }}
+          file: ${{ env.WORKING_DIRECTORY }}/Dockerfile
+          push: true
+          tags: ${{ env.FULL_IMAGE_TAG }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Test
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: |
+          cd test
+          sudo KLYSHKO_CRG_TEST_IMAGE=${{ env.FULL_IMAGE_TAG }} bats/bin/bats roundtrip.bats
+  # This is required to allow for setting the test job as required in scenarios
+  # where the tests are not actually run, e.g., when there are no changes to
+  # the relevant codebase
+  mp-spdz-cowgear-test-status:
+    runs-on: ubuntu-22.04
+    needs: mp-spdz-cowgear-test
+    if: '!cancelled()' # Makes the job run regardless whether 'mp-spdz-cowgear-test' succeeds or not but allows for cancellation
+    steps:
+      - name: Tests successful
+        if: ${{ !(contains(needs.mp-spdz-cowgear-test.result, 'failure')) }}
+        run: exit 0
+      - name: Tests failed
+        if: ${{ contains(needs.mp-spdz-cowgear-test.result, 'failure') }}
+        run: exit 1

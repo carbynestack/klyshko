@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022 - for information on the respective copyright owner
+Copyright (c) 2022-2023 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -16,6 +16,9 @@ import (
 type TupleGenerationTaskState string
 
 const (
+
+	// TaskPreparing means that auxiliary resources are being generated.
+	TaskPreparing TupleGenerationTaskState = "Preparing"
 
 	// TaskLaunching means that the tuple generation process is being initiated.
 	TaskLaunching TupleGenerationTaskState = "Launching"
@@ -36,7 +39,7 @@ const (
 // IsValid returns true if state s is among the defined ones and false otherwise.
 func (s TupleGenerationTaskState) IsValid() bool {
 	switch s {
-	case TaskLaunching, TaskGenerating, TaskProvisioning, TaskCompleted, TaskFailed:
+	case TaskPreparing, TaskLaunching, TaskGenerating, TaskProvisioning, TaskCompleted, TaskFailed:
 		return true
 	default:
 		return false
@@ -45,14 +48,16 @@ func (s TupleGenerationTaskState) IsValid() bool {
 
 // TupleGenerationTaskSpec defines the desired state of a TupleGenerationTask.
 type TupleGenerationTaskSpec struct {
+	PlayerID uint `json:"playerId"`
 }
 
 // TupleGenerationTaskStatus defines the observed state of a TupleGenerationTask.
 type TupleGenerationTaskStatus struct {
-	State TupleGenerationTaskState `json:"state"`
+	State    TupleGenerationTaskState `json:"state"`
+	Endpoint string                   `json:"endpoint,omitempty"`
 }
 
-// Unmarshal parses a JSON serialized TupleGenerationTask.
+// Unmarshal parses a JSON serialized TupleGenerationTaskStatus.
 func Unmarshal(data []byte) (*TupleGenerationTaskStatus, error) {
 	status := &TupleGenerationTaskStatus{}
 	if err := json.Unmarshal(data, status); err != nil {
@@ -65,6 +70,7 @@ func Unmarshal(data []byte) (*TupleGenerationTaskStatus, error) {
 //+kubebuilder:resource:shortName=tgt;tgtask
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="Status",type=string,JSONPath=`.status.state`
+//+kubebuilder:printcolumn:name="Endpoint",type=string,JSONPath=`.status.endpoint`
 //+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // TupleGenerationTask is the Schema for the TupleGenerationTask API.

@@ -1,0 +1,12 @@
+[submodule "klyshko-mp-spdz-cowgear/MP-SPDZ"]
+	path = klyshko-mp-spdz-cowgear/MP-SPDZ
+	url = git@github.com:data61/MP-SPDZ.git
+[submodule "klyshko-mp-spdz-cowgear/test/bats"]
+	path = klyshko-mp-spdz-cowgear/test/bats
+	url = https://github.com/bats-core/bats-core.git
+[submodule "klyshko-mp-spdz-cowgear/test/test_helper/bats-support"]
+	path = klyshko-mp-spdz-cowgear/test/test_helper/bats-support
+	url = https://github.com/bats-core/bats-support.git
+[submodule "klyshko-mp-spdz-cowgear/test/test_helper/bats-assert"]
+	path = klyshko-mp-spdz-cowgear/test/test_helper/bats-assert
+	url = https://github.com/bats-core/bats-assert.git
