@@ -467,6 +467,20 @@ func (r *TupleGenerationTaskReconciler) getGeneratorPod(ctx context.Context, tas
 	return found, nil
 }
 
+// getGenerator gets the generator resource referenced by the given job.
+func (r *TupleGenerationTaskReconciler) getGenerator(ctx context.Context, job *klyshkov1alpha1.TupleGenerationJob) (*klyshkov1alpha1.TupleGenerator, error) {
+	name := types.NamespacedName{
+		Name:      job.Spec.Generator,
+		Namespace: job.Namespace,
+	}
+	found := &klyshkov1alpha1.TupleGenerator{}
+	err := r.Get(ctx, name, found)
+	if err != nil {
+		return nil, fmt.Errorf("can't get generator '%v': %w", name, err)
+	}
+	return found, nil
+}
+
 // createGeneratorPod creates a generator pod for the task with given key. The pod generates tuples according to the
 // parameter of the given TupleGenerationJob and stores them on the PV shared with the respective provisioner pod.
 func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, key RosterEntryKey, job *klyshkov1alpha1.TupleGenerationJob, task *klyshkov1alpha1.TupleGenerationTask) (*v1.Pod, error) {
@@ -500,6 +514,11 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 		)
 	}
 
+	generator, err := r.getGenerator(ctx, job)
+	if err != nil {
+		return found, fmt.Errorf("can't get the generator for task %v: %w", task.Name, err)
+	}
+	podSpecTemplate := generator.Spec.Template
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      task.Name,
@@ -509,11 +528,13 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 			},
 		},
 		Spec: v1.PodSpec{
+			Affinity: podSpecTemplate.Spec.Affinity,
 			Containers: []v1.Container{
 				{
 					Name:            "generator",
-					Image:           job.Spec.Generator.Image,
-					ImagePullPolicy: job.Spec.Generator.ImagePullPolicy,
+					Image:           podSpecTemplate.Spec.Container.Image,
+					ImagePullPolicy: podSpecTemplate.Spec.Container.ImagePullPolicy,
+					Resources:       podSpecTemplate.Spec.Container.Resources,
 					Ports: []v1.ContainerPort{
 						{
 							ContainerPort: InterCRGNetworkingPort,

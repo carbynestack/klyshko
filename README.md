@@ -94,7 +94,7 @@ You can use the `make` tool to build and deploy the operator using
 
 ```shell
 cd klyshko-operator
-make deploy IMG="carbynestack/klyshko-operator:v0.1.0"
+make deploy IMG="carbynestack/klyshko-operator:v0.3.0"
 ```
 
 #### Using Helm
@@ -104,7 +104,7 @@ You can deploy the Klyshko operator using `helm` as follows:
 ```shell
 HELM_EXPERIMENTAL_OCI=1 helm install klyshko \
   oci://ghcr.io/carbynestack/klyshko \
-  --version 0.1.4
+  --version 0.3.0
 ```
 
 ### Provide the Configuration
@@ -125,8 +125,10 @@ kind: TupleGenerator
 metadata:
   name: mp-spdz-fake
 spec:
-  image: carbynestack/klyshko-mp-spdz:0.2.0
-  imagePullPolicy: IfNotPresent
+  template:
+    spec:
+      container:
+        image: carbynestack/klyshko-mp-spdz:0.2.0
   supports:
     - type: BIT_GFP
       batchSize: 100000
@@ -153,11 +155,58 @@ EOF
 
 This registers the generator with Klyshko. Note that you have to specify each
 tuple type supported by the CRG and provide a recommended batch size for jobs
-that generate that type of tuples.
+that generate that type of tuples. Please consult the CRG documentation for more
+information.
 
 > **IMPORTANT**: In case a tuple type is supported by multiple generators no
 > tuples are generated for that tuple type to avoid potential inconsistencies
 > across VCPs.
+
+#### CRG Pod Template
+
+You can customize some aspects of the pod launched for a tuple generation task,
+i.e., the pod that hosts the container running the generator image. The
+following fields are customizable (in lexical order):
+
+| Aspect    | Description                                                                                        | Field(s)                                               |
+| --------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Affinity  | Used to constrain on which nodes the generator pod can run (see [here][k8s-affinity] for details). | `spec.template.spec.affinity`                          |
+| Image     | The generator image to use (see [here][k8s-images] for details).                                   | `spec.template.spec.container.{image,imagePullPolicy}` |
+| Resources | How much resources the container needs (see [here][k8s-resource] for details).                     | `spec.template.spec.container.resources`               |
+
+Note that `spec.template.spec.container.image` is the only mandatory field. If a
+field is not provided the general default values for pods / containers are used
+(see links provided above).
+
+A fully customized sample generator pod template looks like the following:
+
+```yaml
+apiVersion: klyshko.carbnyestack.io/v1alpha1
+kind: TupleGenerator
+metadata:
+  name: mp-spdz-fake
+spec:
+  template:
+    spec:
+      affinity: # Only place pod on nodes running a Linux OS
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/os
+                  operator: In
+                  values:
+                    - linux
+      container:
+        image: carbynestack/klyshko-mp-spdz:0.2.0
+        imagePullPolicy: Always
+        resources:
+          requests: # Asking for 2 GB of memory and 1 CPU unit (physical or virtual CPU core)
+            memory: "2G"
+            cpu: "1"
+  supports:
+    - ...
+```
 
 ### Instantiating a Scheduler
 
@@ -492,5 +541,8 @@ Please see the Carbyne Stack
 [Contributor's Guide](https://github.com/carbynestack/carbynestack/blob/master/CONTRIBUTING.md)
 .
 
+[k8s-affinity]: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+[k8s-images]: https://kubernetes.io/docs/concepts/containers/images/
+[k8s-resource]: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 [mp-spdz-fake]: klyshko-mp-spdz/README.md#additional-parameters
 [o-sdk-logging]: https://sdk.operatorframework.io/docs/building-operators/golang/references/logging/
