@@ -187,16 +187,16 @@ metadata:
   name: mp-spdz-fake
 spec:
   template:
-    affinity: # Only place pod on nodes running a Linux OS
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-              - key: kubernetes.io/os
-                operator: In
-                values:
-                  - linux
     spec:
+      affinity: # Only place pod on nodes running a Linux OS
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: kubernetes.io/os
+                  operator: In
+                  values:
+                    - linux
       container:
         image: carbynestack/klyshko-mp-spdz:0.2.0
         imagePullPolicy: Always
