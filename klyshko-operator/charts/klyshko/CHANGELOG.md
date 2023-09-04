@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.0](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.3.0...operator-chart-v0.4.0) (2023-09-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* **operator-chart:** implement pod template support ([#89](https://github.com/carbynestack/klyshko/issues/89))
+
+### Features
+
+* **operator-chart:** implement pod template support ([#89](https://github.com/carbynestack/klyshko/issues/89)) ([e8a6e09](https://github.com/carbynestack/klyshko/commit/e8a6e0953c23739311a3240d38b84b0d683b65d4))
+
 ## [0.3.0](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.2.0...operator-chart-v0.3.0) (2023-08-03)
 
 
