@@ -11,6 +11,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/carbynestack/klyshko/logging"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	v1 "k8s.io/api/core/v1"
@@ -19,8 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strconv"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -233,6 +234,10 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 				Requeue: true,
 			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskFailed)
 		}
+	case klyshkov1alpha1.TaskFailed, klyshkov1alpha1.TaskCompleted:
+		return ctrl.Result{
+			Requeue: true,
+		}, r.deletePVC(ctx, taskKey)
 	}
 
 	logger.V(logging.DEBUG).Info("Desired state reached")
@@ -364,6 +369,26 @@ func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key 
 		return nil, fmt.Errorf("persistent volume claim creation failed for task %v: %w", key, err)
 	}
 	return pvc, nil
+}
+
+// deletePVC deletes a PVC associated to a given task
+func (r *TupleGenerationTaskReconciler) deletePVC(ctx context.Context, key *RosterEntryKey) error {
+	logger := log.FromContext(ctx).WithValues("Task.Key", key)
+	name := types.NamespacedName{
+		Name:      pvcName(*key),
+		Namespace: key.Namespace,
+	}
+	found := &v1.PersistentVolumeClaim{}
+	err := r.Get(ctx, name, found)
+	if err == nil {
+		logger.V(logging.DEBUG).Info("Persistent Volume Claim already exists")
+		err = r.Delete(ctx, found)
+		if err != nil {
+			return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
+		}
+		return nil
+	}
+	return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
 }
 
 // provisionerPodName returns the name for the provisioner pod used for the task with the given key.
