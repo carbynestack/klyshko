@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022-2023 - for information on the respective copyright owner
+Copyright (c) 2022-2024 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -60,7 +60,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 	logger := log.FromContext(ctx).WithValues("Task.Name", req.Name)
 	logger.V(logging.DEBUG).Info("Reconciling tuple generation task")
 
-	taskKey, err := r.taskKeyFromName(req.Namespace, req.Name)
+	taskKey, err := taskKeyFromName(req.Namespace, req.Name)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get key for task %v: %w", req.Name, err)
 	}
@@ -255,7 +255,7 @@ func (r *TupleGenerationTaskReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 // taskKeyFromName creates a RosterEntryKey from the given name and namespace. Expects that the zero-based VCP
 // identifier is appended with a hyphen to the name.
-func (r *TupleGenerationTaskReconciler) taskKeyFromName(namespace string, name string) (*RosterEntryKey, error) {
+func taskKeyFromName(namespace string, name string) (*RosterEntryKey, error) {
 	parts := strings.Split(name, "-")
 	vcpID := parts[len(parts)-1]
 	jobName := strings.Join(parts[:len(parts)-1], "-")
