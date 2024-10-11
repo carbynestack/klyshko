@@ -235,12 +235,11 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskFailed)
 		}
 	case klyshkov1alpha1.TaskFailed, klyshkov1alpha1.TaskCompleted:
-		return ctrl.Result{
-			Requeue: true,
-		}, r.deletePVC(ctx, taskKey)
+		logger.V(logging.DEBUG).Info("Task reached a terminal state")
+		return ctrl.Result{}, r.deletePVC(ctx, taskKey)
+	default:
+		return ctrl.Result{}, fmt.Errorf("unexpected state for Task %v, PVC not reclaimed", req.Name)
 	}
-
-	logger.V(logging.DEBUG).Info("Desired state reached")
 	return ctrl.Result{}, nil
 }
 
@@ -380,15 +379,18 @@ func (r *TupleGenerationTaskReconciler) deletePVC(ctx context.Context, key *Rost
 	}
 	found := &v1.PersistentVolumeClaim{}
 	err := r.Get(ctx, name, found)
-	if err == nil {
-		logger.V(logging.DEBUG).Info("Persistent Volume Claim already exists")
-		err = r.Delete(ctx, found)
-		if err != nil {
-			return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
-		}
-		return nil
+	if err != nil {
+		return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
 	}
-	return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
+	logger.V(logging.DEBUG).Info("Persistent Volume Claim already exists")
+
+	err = r.Delete(ctx, found)
+	if err != nil {
+		return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
+	}
+
+	logger.V(logging.DEBUG).Info("Deleted Persistent Volume Claim for task %v", key)
+	return nil
 }
 
 // provisionerPodName returns the name for the provisioner pod used for the task with the given key.
