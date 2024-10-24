@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022-2023 - for information on the respective copyright owner
+Copyright (c) 2022-2024 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -11,6 +11,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/carbynestack/klyshko/logging"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	v1 "k8s.io/api/core/v1"
@@ -19,8 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"strconv"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,7 +60,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 	logger := log.FromContext(ctx).WithValues("Task.Name", req.Name)
 	logger.V(logging.DEBUG).Info("Reconciling tuple generation task")
 
-	taskKey, err := r.taskKeyFromName(req.Namespace, req.Name)
+	taskKey, err := taskKeyFromName(req.Namespace, req.Name)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get key for task %v: %w", req.Name, err)
 	}
@@ -233,6 +234,10 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 				Requeue: true,
 			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskFailed)
 		}
+	case klyshkov1alpha1.TaskFailed, klyshkov1alpha1.TaskCompleted:
+		return ctrl.Result{
+			Requeue: true,
+		}, r.deletePVC(ctx, taskKey)
 	}
 
 	logger.V(logging.DEBUG).Info("Desired state reached")
@@ -250,7 +255,7 @@ func (r *TupleGenerationTaskReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 // taskKeyFromName creates a RosterEntryKey from the given name and namespace. Expects that the zero-based VCP
 // identifier is appended with a hyphen to the name.
-func (r *TupleGenerationTaskReconciler) taskKeyFromName(namespace string, name string) (*RosterEntryKey, error) {
+func taskKeyFromName(namespace string, name string) (*RosterEntryKey, error) {
 	parts := strings.Split(name, "-")
 	vcpID := parts[len(parts)-1]
 	jobName := strings.Join(parts[:len(parts)-1], "-")
@@ -364,6 +369,26 @@ func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key 
 		return nil, fmt.Errorf("persistent volume claim creation failed for task %v: %w", key, err)
 	}
 	return pvc, nil
+}
+
+// deletePVC deletes a PVC associated to a given task
+func (r *TupleGenerationTaskReconciler) deletePVC(ctx context.Context, key *RosterEntryKey) error {
+	logger := log.FromContext(ctx).WithValues("Task.Key", key)
+	name := types.NamespacedName{
+		Name:      pvcName(*key),
+		Namespace: key.Namespace,
+	}
+	found := &v1.PersistentVolumeClaim{}
+	err := r.Get(ctx, name, found)
+	if err == nil {
+		logger.V(logging.DEBUG).Info("Persistent Volume Claim already exists")
+		err = r.Delete(ctx, found)
+		if err != nil {
+			return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
+		}
+		return nil
+	}
+	return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
 }
 
 // provisionerPodName returns the name for the provisioner pod used for the task with the given key.
