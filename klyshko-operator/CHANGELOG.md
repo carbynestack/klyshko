@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/carbynestack/klyshko/compare/operator-v0.3.0...operator-v0.3.1) (2024-10-24)
+
+
+### Bug Fixes
+
+* **operator:** pin setup-envtest version ([#94](https://github.com/carbynestack/klyshko/issues/94)) ([b46b543](https://github.com/carbynestack/klyshko/commit/b46b543b654917f8067050948caa42c1121410b7))
+
 ## [0.3.0](https://github.com/carbynestack/klyshko/compare/operator-v0.2.0...operator-v0.3.0) (2023-08-03)
 
 
