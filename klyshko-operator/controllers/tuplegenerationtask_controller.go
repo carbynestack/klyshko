@@ -380,16 +380,15 @@ func (r *TupleGenerationTaskReconciler) deletePVC(ctx context.Context, key *Rost
 	found := &v1.PersistentVolumeClaim{}
 	err := r.Get(ctx, name, found)
 	if err != nil {
-		return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
+		return fmt.Errorf("to be deleted persistent volume claim not found for task %v: %w", key, err)
 	}
-	logger.V(logging.DEBUG).Info("Persistent Volume Claim already exists")
 
 	err = r.Delete(ctx, found)
 	if err != nil {
 		return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
 	}
 
-	logger.V(logging.DEBUG).Info("Deleted Persistent Volume Claim for task %v", key)
+	logger.V(logging.DEBUG).Info("Deleted Persistent Volume Claim for task")
 	return nil
 }
 
