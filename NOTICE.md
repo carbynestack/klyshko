@@ -9,6 +9,10 @@ file in the Carbyne Stack
 
 > **NOTE**: Please keep the following list of contributors sorted.
 
+### Resolve.tech
+
+- Adrián Vaca Humanes [adrian.humanes@vml.com](mailto:adrian.humanes@vml.com)
+
 ### Robert Bosch GmbH
 
 - Becker Sebastian

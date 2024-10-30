@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022-2023 - for information on the respective copyright owner
+Copyright (c) 2022-2024 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -10,6 +10,13 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"io"
+	"math"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
 	klyshkov1alpha1 "github.com/carbynestack/klyshko/api/v1alpha1"
 	"github.com/carbynestack/klyshko/castor"
 	"github.com/google/uuid"
@@ -17,7 +24,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	clientv3 "go.etcd.io/etcd/client/v3"
-	"io"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -26,16 +32,11 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/pointer"
-	"math"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"strconv"
-	"strings"
-	"time"
 )
 
 const (
@@ -343,6 +344,7 @@ var _ = Describe("Generating tuples", func() {
 			jobs               []klyshkov1alpha1.TupleGenerationJob
 			localTasksByVCP    []klyshkov1alpha1.TupleGenerationTask
 			generatorPodsByVCP []v1.Pod
+			taskPVCsByVCP      []v1.PersistentVolumeClaim
 		)
 
 		BeforeEach(func() {
@@ -374,6 +376,7 @@ var _ = Describe("Generating tuples", func() {
 			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs, klyshkov1alpha1.TaskGenerating)
 
 			generatorPodsByVCP = ensureGeneratorPodsCreatedOnEachVcp(ctx, vc, localTasksByVCP)
+			taskPVCsByVCP = ensureTaskPVCsCreatedOnEachVcp(ctx, vc, localTasksByVCP)
 			ensureJobState(ctx, vc, scheduler, uuid.MustParse(jobs[0].Spec.ID), klyshkov1alpha1.JobRunning)
 		})
 
@@ -392,6 +395,17 @@ var _ = Describe("Generating tuples", func() {
 					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
 				}
 				ensureJobState(ctx, vc, scheduler, uuid.MustParse(jobs[0].Spec.ID), klyshkov1alpha1.JobFailed)
+
+				for i := 0; i < NumberOfVCPs; i++ {
+					key := client.ObjectKey{
+						Namespace: taskPVCsByVCP[i].GetNamespace(),
+						Name:      taskPVCsByVCP[i].GetName(),
+					}
+					Eventually(func() bool {
+						return apierrors.IsNotFound(vc.vcps[i].k8sClient.Get(ctx, key, &jobs[i]))
+					}, Timeout, PollingInterval).Should(BeTrue())
+				}
+
 			})
 		})
 
@@ -411,6 +425,16 @@ var _ = Describe("Generating tuples", func() {
 					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
 				}
 				ensureJobState(ctx, vc, scheduler, uuid.MustParse(jobs[0].Spec.ID), klyshkov1alpha1.JobFailed)
+
+				for i := 0; i < NumberOfVCPs; i++ {
+					key := client.ObjectKey{
+						Namespace: taskPVCsByVCP[i].GetNamespace(),
+						Name:      taskPVCsByVCP[i].GetName(),
+					}
+					Eventually(func() bool {
+						return apierrors.IsNotFound(vc.vcps[i].k8sClient.Get(ctx, key, &jobs[i]))
+					}, Timeout, PollingInterval).Should(BeTrue())
+				}
 			})
 		})
 
@@ -517,6 +541,29 @@ func ensurePodsCreatedOnEachVcp(ctx context.Context, vc *vc, name func(int) type
 		pods[i] = *pod
 	}
 	return pods
+}
+
+// Ensures the PVCs associated to a task have been created, with the main purpose of checking for their
+// non-existence after cleanup
+func ensureTaskPVCsCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks []klyshkov1alpha1.TupleGenerationTask) []v1.PersistentVolumeClaim {
+	pvcs := make([]v1.PersistentVolumeClaim, NumberOfVCPs)
+	for i := 0; i < NumberOfVCPs; i++ {
+		taskKey, _ := taskKeyFromName(localTasks[i].Namespace, localTasks[i].Name)
+		pvc := &v1.PersistentVolumeClaim{}
+		name := types.NamespacedName{
+			Name:      pvcName(*taskKey),
+			Namespace: taskKey.Namespace,
+		}
+		Eventually(func() bool {
+			err := vc.vcps[i].k8sClient.Get(ctx, name, pvc)
+			if err != nil {
+				return false
+			}
+			return true
+		}, Timeout, PollingInterval).Should(BeTrue())
+		pvcs[i] = *pvc
+	}
+	return pvcs
 }
 
 // Ensures that provisioner pods associated with the respective tasks eventually become available for the given job in
