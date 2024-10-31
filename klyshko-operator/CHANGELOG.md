@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/carbynestack/klyshko/compare/operator-v0.3.0...operator-v0.3.1) (2024-10-31)
+
+
+### Bug Fixes
+
+* **operator:** pin setup-envtest version ([#94](https://github.com/carbynestack/klyshko/issues/94)) ([b46b543](https://github.com/carbynestack/klyshko/commit/b46b543b654917f8067050948caa42c1121410b7))
+* **operator:** prevent Tasks in terminal state from leaking PVCs ([#93](https://github.com/carbynestack/klyshko/issues/93)) ([6029adf](https://github.com/carbynestack/klyshko/commit/6029adf16f90a06a30dc55da452682315c7250ef))
+
 ## [0.3.0](https://github.com/carbynestack/klyshko/compare/operator-v0.2.0...operator-v0.3.0) (2023-08-03)
 
 
