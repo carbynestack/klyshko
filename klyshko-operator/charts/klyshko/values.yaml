@@ -17,6 +17,11 @@ controller:
     pullPolicy: IfNotPresent
     tag: latest
   etcdEndpoint: 172.18.1.129:2379
+  vcpIp:
+  tls:
+    enabled: false
+    secretName:
+  
 
 provisioner:
   image:

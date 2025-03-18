@@ -9,9 +9,10 @@ package main
 
 import (
 	"flag"
-	"github.com/carbynestack/klyshko/castor"
 	"os"
 	"time"
+
+	"github.com/carbynestack/klyshko/castor"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -49,6 +50,7 @@ var (
 	etcdDialTimeout      = flag.Int("etcd-dial-timeout", 5, "The timeout (in seconds) for failing to establish a connection to the etcd service.")
 	castorURL            = flag.String("castor-url", "http://cs-castor.default.svc.cluster.local:10100", "The base url of the castor service used to upload generated tuples.")
 	provisionerImage     = flag.String("provisioner-image", "ghcr.io/carbynestack/klyshko-provisioner:latest", "The name of the provisioner image.")
+	vcpIPAddress         = flag.String("vcp-ip-address", "172.18.1.128", "The IP address of the VCP.")
 )
 
 func main() {
@@ -105,6 +107,7 @@ func main() {
 		Scheme:           mgr.GetScheme(),
 		EtcdClient:       etcdClient,
 		ProvisionerImage: *provisionerImage,
+		VcpIPAddress:     *vcpIPAddress,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TupleGenerationTask")
 		os.Exit(1)

@@ -44,6 +44,9 @@ spec:
             - --zap-log-level=info
             - --provisioner-image={{ printf "%s/%s:%s" .Values.provisioner.image.registry .Values.provisioner.image.repository .Values.provisioner.image.tag }}
             - --etcd-endpoint={{ .Values.controller.etcdEndpoint }}
+            - --tls-enabled={{ .Values.controller.tls.enabled }}
+            - --tls-secret-name={{ .Values.controller.tls.secretName }}
+            - --vcp-ip={{ .Values.controller.vcpIp }}
           command:
             - /manager
           image:  "{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}"
