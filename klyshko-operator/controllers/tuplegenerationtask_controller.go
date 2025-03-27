@@ -1,9 +1,9 @@
 /*
-Copyright (c) 2022-2024 - for information on the respective copyright owner
-see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
-
-SPDX-License-Identifier: Apache-2.0
-*/
+ * Copyright (c) 2022-2025 - for information on the respective copyright owner
+ * see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 package controllers
 
@@ -20,10 +20,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -37,19 +35,20 @@ const (
 
 	// InterCRGNetworkingPort is the network used for inter-CRG communication.
 	InterCRGNetworkingPort = 5000
-
-	// Port range for dynamic allocation
-	MinPort = 30500
-	MaxPort = 30504
 )
+
+type TLSConfig struct {
+	SecretName string
+}
 
 // TupleGenerationTaskReconciler reconciles a TupleGenerationTask object.
 type TupleGenerationTaskReconciler struct {
 	client.Client
 	Scheme           *runtime.Scheme
 	EtcdClient       *clientv3.Client
-	ProvisionerImage string,
-	VcpIPAddress	 string
+	ProvisionerImage string
+	VcpIPAddress     string
+	NetworkManager   NetworkManager
 }
 
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks,verbs=get;list;watch;create;update;patch;delete
@@ -153,16 +152,16 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			return ctrl.Result{}, fmt.Errorf("unable to create PVC for task %v: %w", req.Name, err)
 		}
 
-		// Allocate a free port for the Gateway and Service
-		port, err := r.createIstioResources(ctx, taskKey, task)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create Istio resources for task %v: %w", taskKey, err)
-		}
-
 		// Create the service used for inter-CRG networking, if not existing
-		svc, err := r.getOrCreateService(ctx, taskKey, task, port)
+		err := r.getOrCreateService(ctx, taskKey, task)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to get or create service for task %v: %w", req.Name, err)
+		}
+
+		// Allocate a free port for the Gateway and Service
+		port, err := r.NetworkManager.CreateIngressNetworkingForTask(ctx, task)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create networking resources for task %v: %w", taskKey, err)
 		}
 
 		// Collect all known endpoints for all CRGs of the job (local and remote) and decide based
@@ -182,8 +181,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 				Requeue: true,
 			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskLaunching)
 		case func() bool { _, ok := endpoints[taskKey.PlayerID]; return !ok }(): // Local endpoint not yet available
-			endpoint := r.endpoint()
-			status.Endpoint = fmt.Sprintf("%s:%d", endpoint, port)
+			status.Endpoint = fmt.Sprintf("%s:%d", r.VcpIPAddress, port)
 			err = r.setStatus(ctx, *taskKey, status)
 			if err != nil {
 				return ctrl.Result{}, err
@@ -195,8 +193,16 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			return ctrl.Result{}, nil
 		}
 	case klyshkov1alpha1.TaskLaunching:
+		tasksByPlayerID, err := r.tasksForJob(ctx, job)
+		endpoints := r.endpoints(tasksByPlayerID)
+		delete(endpoints, taskKey.PlayerID)
+		// Create egress network resources for the task
+		err = r.NetworkManager.CreateEgressNetworkingForTask(ctx, task, endpoints)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to create egress networking resources for task %v: %w", req.Name, err)
+		}
 		// Create generator pod if not existing
-		_, err := r.createGeneratorPod(ctx, *taskKey, job, task)
+		_, err = r.createGeneratorPod(ctx, *taskKey, job, task)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to create generator pod for task %v: %w", req.Name, err)
 		}
@@ -680,7 +686,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 }
 
 // getOrCreateService creates (if not existing) the service to expose the CRG endpoint for inter-CRG networking.
-func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, key *RosterEntryKey, task *klyshkov1alpha1.TupleGenerationTask, port int) (*v1.Service, error) {
+func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, key *RosterEntryKey, task *klyshkov1alpha1.TupleGenerationTask) error {
 	logger := log.FromContext(ctx).WithValues("Task.Key", key)
 	name := types.NamespacedName{
 		Name:      task.Name,
@@ -690,38 +696,39 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 	err := r.Get(ctx, name, found)
 	if err == nil {
 		logger.V(logging.DEBUG).Info("Service already exists")
-		return found, nil
+		return nil
 	}
-
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name,
 			Namespace: name.Namespace,
+			Labels: map[string]string{
+				"sidecar.istio.io/inject": "true",
+			},
 		},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Port:       int32(port),
-					TargetPort: intstr.FromInt(InterCRGNetworkingPort),
+					Port: InterCRGNetworkingPort,
 				},
 			},
 			Selector: map[string]string{
 				TaskLabel: task.Name,
 			},
-			Type: v1.ServiceTypeClusterIP, // Use ClusterIP instead of LoadBalancer
+			Type: v1.ServiceTypeClusterIP,
 		},
 	}
 	logger.V(logging.DEBUG).Info("Creating service", "Service", service)
 	err = ctrl.SetControllerReference(task, service, r.Scheme)
 	if err != nil {
-		return nil, fmt.Errorf("setting the owner reference for task %v failed: %w", task.Name, err)
+		return fmt.Errorf("setting the owner reference for task %v failed: %w", task.Name, err)
 	}
 	err = r.Create(ctx, service)
 	if err != nil {
-		return nil, fmt.Errorf("service creation failed for task %v: %w", key, err)
+		return fmt.Errorf("service creation failed for task %v: %w", key, err)
 	}
 
-	return service, nil
+	return nil
 }
 
 // tasksForJob returns the existing and retrievable tasks (remote and local) for the given job.
@@ -767,143 +774,4 @@ func (r *TupleGenerationTaskReconciler) endpoints(tasks map[uint]*klyshkov1alpha
 		}
 	}
 	return endpoints
-}
-
-// endpoint returns the first ingress point from the given service of type load balancer or nil, iff not available.
-// Errors in case of non-LB service type or if neither an IP nor a hostname is available.
-// func endpoint(service *v1.Service) (*string, error) {
-// 	if service.Spec.Type != v1.ServiceTypeLoadBalancer {
-// 		return nil, fmt.Errorf("service of type load balancer expected, was %s", service.Spec.Type)
-// 	}
-// 	lb := service.Status.LoadBalancer
-// 	if len(lb.Ingress) == 0 {
-// 		return nil, nil
-// 	}
-// 	ingress := lb.Ingress[0]
-// 	switch {
-// 	case ingress.IP != "":
-// 		return &ingress.IP, nil
-// 	case ingress.Hostname != "":
-// 		return &ingress.Hostname, nil
-// 	default:
-// 		return nil, fmt.Errorf("neither IP- nor hostname-based ingress point available")
-// 	}
-// }
-
-// getFreePort checks for a free port in the defined range and returns it.
-func (r *TupleGenerationTaskReconciler) getFreePort(ctx context.Context, namespace string) (int, error) {
-	for port := MinPort; port <= MaxPort; port++ {
-		// Check if the port is already in use by any Gateway in the namespace
-		gatewayList := &networkingv1alpha3.GatewayList{}
-		err := r.List(ctx, gatewayList, client.InNamespace(namespace))
-		if err != nil {
-			return 0, fmt.Errorf("failed to list gateways: %w", err)
-		}
-		portInUse := false
-		for _, gw := range gatewayList.Items {
-			for _, server := range gw.Spec.Servers {
-				if int(server.Port.Number) == port {
-					portInUse = true
-					break
-				}
-			}
-			if portInUse {
-				break
-			}
-		}
-		if !portInUse {
-			return port, nil
-		}
-	}
-	return 0, fmt.Errorf("no free ports available in the range %d-%d", MinPort, MaxPort)
-}
-
-// createIstioResources creates the necessary Istio resources for the task
-func (r *TupleGenerationTaskReconciler) createIstioResources(ctx context.Context, key *RosterEntryKey, task *klyshkov1alpha1.TupleGenerationTask) (int, error) {
-	logger := log.FromContext(ctx).WithValues("Task.Key", key)
-
-	// Allocate a free port for the Gateway
-	port, err := r.getFreePort(ctx, task.Namespace)
-	if err != nil {
-		return 0, fmt.Errorf("failed to allocate a free port: %w", err)
-	}
-
-	// Create Gateway
-	gateway := &networkingv1alpha3.Gateway{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-gateway", task.Name),
-			Namespace: task.Namespace,
-		},
-		Spec: networkingv1alpha3.GatewaySpec{
-			Selector: map[string]string{
-				"istio": "ingressgateway",
-			},
-			Servers: []networkingv1alpha3.Server{
-				{
-					Port: networkingv1alpha3.Port{
-						Number:   uint32(port),
-						Protocol: "TCP",
-						Name:     fmt.Sprintf("tcp-%s", task.Name),
-					},
-					Hosts: []string{"*"},
-				},
-			},
-		},
-	}
-	logger.V(logging.DEBUG).Info("Creating gateway", "Gateway", gateway)
-	err = ctrl.SetControllerReference(task, gateway, r.Scheme)
-	if err != nil {
-		return 0, fmt.Errorf("setting the owner reference for gateway %v failed: %w", gateway.Name, err)
-	}
-	err = r.Create(ctx, gateway)
-	if err != nil {
-		return 0, fmt.Errorf("gateway creation failed for task %v: %w", key, err)
-	}
-
-	// Create VirtualService
-	virtualService := &networkingv1alpha3.VirtualService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-virtualservice", task.Name),
-			Namespace: task.Namespace,
-		},
-		Spec: networkingv1alpha3.VirtualServiceSpec{
-			Hosts:    []string{"*"},
-			Gateways: []string{gateway.Name},
-			TCP: []networkingv1alpha3.TCPRoute{
-				{
-					Match: []networkingv1alpha3.L4MatchAttributes{
-						{
-							Port: uint32(port),
-						},
-					},
-					Route: []networkingv1alpha3.RouteDestination{
-						{
-							Destination: networkingv1alpha3.Destination{
-								Host: task.Name,
-								Port: networkingv1alpha3.PortSelector{
-									Number: uint32(InterCRGNetworkingPort),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	logger.V(logging.DEBUG).Info("Creating virtual service", "VirtualService", virtualService)
-	err = ctrl.SetControllerReference(task, virtualService, r.Scheme)
-	if err != nil {
-		return 0, fmt.Errorf("setting the owner reference for virtual service %v failed: %w", virtualService.Name, err)
-	}
-	err = r.Create(ctx, virtualService)
-	if err != nil {
-		return 0, fmt.Errorf("virtual service creation failed for task %v: %w", key, err)
-	}
-
-	return port, nil
-}
-
-// endpoint returns the VCP IP address from the reconciler.
-func (r *TupleGenerationTaskReconciler) endpoint() string {
-    return r.VcpIPAddress
 }

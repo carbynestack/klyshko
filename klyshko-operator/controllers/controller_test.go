@@ -51,7 +51,22 @@ const (
 	TupleThreshold                   = 50000
 	TuplesPerJob                     = 100000
 	SchedulerTTLSecondsAfterFinished = 5
+	VcpIpAddress                     = "172.18.1.128"
 )
+
+type happyFakeNetworkManager struct{}
+
+func (hnm *happyFakeNetworkManager) CreateIngressNetworkingForTask(_ context.Context, _ *klyshkov1alpha1.TupleGenerationTask) (uint32, error) {
+	return 42, nil
+}
+
+func (hnm *happyFakeNetworkManager) CreateEgressNetworkingForTask(_ context.Context, _ *klyshkov1alpha1.TupleGenerationTask, _ map[uint]string) error {
+	return nil
+}
+
+func (hnm *happyFakeNetworkManager) DeleteNetworkingForTask(_ context.Context, _ *klyshkov1alpha1.TupleGenerationTask) error {
+	return nil
+}
 
 type vcp struct {
 	cfg       *rest.Config
@@ -188,6 +203,8 @@ func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *cli
 			Scheme:           k8sManager.GetScheme(),
 			EtcdClient:       etcdClient,
 			ProvisionerImage: "carbynestack/klyshko-provisioner:1.0.0-SNAPSHOT",
+			NetworkManager:   &happyFakeNetworkManager{},
+			VcpIPAddress:     VcpIpAddress,
 		},
 	}
 	if vcpID == 0 {
@@ -688,7 +705,7 @@ func ensureServiceCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks []kly
 			}
 			return true
 		}, Timeout, PollingInterval).Should(BeTrue())
-		Expect(services[i].Spec.Type).To(Equal(v1.ServiceTypeLoadBalancer))
+		Expect(services[i].Spec.Type).To(Equal(v1.ServiceTypeClusterIP))
 	}
 	return services
 }
