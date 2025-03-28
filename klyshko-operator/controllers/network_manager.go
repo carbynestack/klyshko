@@ -26,6 +26,10 @@ const (
 	TaskNetworkLabel = "klyshko.carbnyestack.io/task-network-ref"
 )
 
+type TLSConfig struct {
+	SecretName string
+}
+
 type NetworkManager interface {
 	// CreateIngressNetworkingForTask creates the necessary Istio ingress resources
 	// for the task if not already
@@ -354,6 +358,7 @@ func (n *DefaultNetworkManager) createServiceEntry(ctx context.Context, logger l
 		&v1beta1.ServiceEntry{
 			Addresses: []string{fmt.Sprintf("%s/32", host)},
 			Ports: []*v1beta1.Port{
+				// ToDo: Use ServicePort once later versions of IstioAPI are supported
 				{
 					Number:     port,
 					Protocol:   "TCP",

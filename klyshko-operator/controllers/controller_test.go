@@ -10,7 +10,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"path/filepath"
 	"strconv"
@@ -51,22 +50,12 @@ const (
 	TupleThreshold                   = 50000
 	TuplesPerJob                     = 100000
 	SchedulerTTLSecondsAfterFinished = 5
-	VcpIpAddress                     = "172.18.1.128"
+	ServicePort                      = 34567
 )
 
-type happyFakeNetworkManager struct{}
+var vcpIpAddresses = []string{"172.18.1.128", "172.18.2.128"}
 
-func (hnm *happyFakeNetworkManager) CreateIngressNetworkingForTask(_ context.Context, _ *klyshkov1alpha1.TupleGenerationTask) (uint32, error) {
-	return 42, nil
-}
-
-func (hnm *happyFakeNetworkManager) CreateEgressNetworkingForTask(_ context.Context, _ *klyshkov1alpha1.TupleGenerationTask, _ map[uint]string) error {
-	return nil
-}
-
-func (hnm *happyFakeNetworkManager) DeleteNetworkingForTask(_ context.Context, _ *klyshkov1alpha1.TupleGenerationTask) error {
-	return nil
-}
+var fakeNetworkManager = &FakeNetworkManager{}
 
 type vcp struct {
 	cfg       *rest.Config
@@ -203,8 +192,8 @@ func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *cli
 			Scheme:           k8sManager.GetScheme(),
 			EtcdClient:       etcdClient,
 			ProvisionerImage: "carbynestack/klyshko-provisioner:1.0.0-SNAPSHOT",
-			NetworkManager:   &happyFakeNetworkManager{},
-			VcpIPAddress:     VcpIpAddress,
+			NetworkManager:   fakeNetworkManager,
+			VcpIPAddress:     vcpIpAddresses[vcpID],
 		},
 	}
 	if vcpID == 0 {
@@ -372,6 +361,7 @@ var _ = Describe("Generating tuples", func() {
 			vc, err = setupVC(ctx, NumberOfVCPs)
 			Expect(err).NotTo(HaveOccurred())
 
+			fakeNetworkManager.ResetToFailing()
 			scheduler = createScheduler(ctx, vc)
 			jobs = ensureJobCreatedOnEachVcp(ctx, vc, scheduler)
 
@@ -381,14 +371,9 @@ var _ = Describe("Generating tuples", func() {
 
 			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs, klyshkov1alpha1.TaskPreparing)
 
-			services := ensureServiceCreatedOnEachVcp(ctx, vc, localTasksByVCP)
-			for i, service := range services {
-				service.Status.LoadBalancer.Ingress = make([]v1.LoadBalancerIngress, 1)
-				service.Status.LoadBalancer.Ingress[0] = v1.LoadBalancerIngress{
-					IP: fmt.Sprintf("172.0.0.%d", i),
-				}
-				Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &service)).Should(Succeed())
-			}
+			_ = ensureServiceCreatedOnEachVcp(ctx, vc, localTasksByVCP)
+			fakeNetworkManager.DoReturnOnCreateIngressNetworkingForTask(ServicePort, nil)
+			fakeNetworkManager.DoReturnOnCreateEgressNetworkingForTask(nil)
 
 			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs, klyshkov1alpha1.TaskGenerating)
 
@@ -697,7 +682,6 @@ func ensureServiceCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks []kly
 			Namespace: localTasks[i].Namespace,
 			Name:      localTasks[i].Name,
 		}
-		io.WriteString(GinkgoWriter, fmt.Sprintf("!!!!!!!!!!!!! looking for %v in %d\n", name, i))
 		Eventually(func() bool {
 			err := vc.vcps[i].k8sClient.Get(ctx, name, &services[i])
 			if err != nil {

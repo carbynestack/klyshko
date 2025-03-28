@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
 	"strings"
 
@@ -36,10 +37,6 @@ const (
 	// InterCRGNetworkingPort is the network used for inter-CRG communication.
 	InterCRGNetworkingPort = 5000
 )
-
-type TLSConfig struct {
-	SecretName string
-}
 
 // TupleGenerationTaskReconciler reconciles a TupleGenerationTask object.
 type TupleGenerationTaskReconciler struct {
@@ -158,7 +155,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			return ctrl.Result{}, fmt.Errorf("unable to get or create service for task %v: %w", req.Name, err)
 		}
 
-		// Allocate a free port for the Gateway and Service
+		// Create ingress network resources for the task
 		port, err := r.NetworkManager.CreateIngressNetworkingForTask(ctx, task)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create networking resources for task %v: %w", taskKey, err)
@@ -709,7 +706,8 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
-					Port: InterCRGNetworkingPort,
+					Port:       InterCRGNetworkingPort,
+					TargetPort: intstr.FromInt(InterCRGNetworkingPort),
 				},
 			},
 			Selector: map[string]string{
@@ -727,7 +725,6 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 	if err != nil {
 		return fmt.Errorf("service creation failed for task %v: %w", key, err)
 	}
-
 	return nil
 }
 
