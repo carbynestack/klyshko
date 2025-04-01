@@ -46,7 +46,7 @@ type NetworkManager interface {
 }
 
 func NewNetworkManager(ingressPortRange *PortRange, egressServiceHost string,
-	egressGatewayName string, egressGatewayNamespace string, egressPortRange *PortRange,
+	egressGatewayName string, egressPortRange *PortRange,
 	tlsConfig *TLSConfig, k8sClient client.Client) (NetworkManager, error) {
 
 	return &DefaultNetworkManager{
@@ -54,16 +54,14 @@ func NewNetworkManager(ingressPortRange *PortRange, egressServiceHost string,
 		ingressPortManager: NewGatewayPortManager(
 			k8sClient,
 			ingressPortRange),
-		egressServiceHost:      egressServiceHost,
-		egressGatewayName:      egressGatewayName,
-		egressGatewayNamespace: egressGatewayNamespace,
+		egressServiceHost: egressServiceHost,
+		egressGatewayName: egressGatewayName,
 		egressPortManager: NewEgressPortManager(
 			k8sClient,
 			egressServiceHost,
 			egressGatewayName,
-			egressGatewayNamespace,
 			egressPortRange),
-		tLSConfig: tlsConfig,
+		tlsConfig: tlsConfig,
 	}, nil
 }
 
@@ -78,13 +76,11 @@ type DefaultNetworkManager struct {
 	egressServiceHost string
 	// egressGatewayName is the name of the Istio Gateway that is used egress traffic.
 	egressGatewayName string
-	// egressGatewayNamespace is the namespace of the Istio Gateway that is used egress traffic.
-	egressGatewayNamespace string
 	// egressPortManager is the manager used to find available ports to configure
 	// egress routes.
 	egressPortManager PortManager
 	// tlsConfig is the configuration used to create the TLS secret. If nil, endpoints are not secured.
-	tLSConfig *TLSConfig
+	tlsConfig *TLSConfig
 }
 
 // CreateIngressNetworkingForTask creates the necessary Istio ingress resources
@@ -136,52 +132,53 @@ func (n *DefaultNetworkManager) CreateEgressNetworkingForTask(ctx context.Contex
 }
 
 // DeleteNetworkingForTask deletes the networking resources for the task.
-// It returns an error if the deletion failed.
+// It collects errors from the deletion of the resources and returns an error if
+// the deletion of any resource type failed.
 func (n *DefaultNetworkManager) DeleteNetworkingForTask(ctx context.Context, task *klyshkov1alpha1.TupleGenerationTask) error {
 	logger := log.FromContext(ctx).
 		WithName("Networking").
 		WithName("Delete").
 		WithValues("Task", task.Name).
 		V(logging.DEBUG)
-	gw := NewIstioGateway(metav1.ObjectMeta{}, nil)
+	errs := make([]error, 0)
 	err := n.k8sClient.DeleteAllOf(
 		ctx,
-		&gw,
+		NewUnstructuredIstioGateway(),
 		client.InNamespace(task.Namespace),
 		client.MatchingLabels{TaskNetworkLabel: task.Name})
 	if err != nil {
 		logger.Info("Failed to delete Gateways", "Error", err)
-		return fmt.Errorf("failed to delete Gateways: %w", err)
+		errs = append(errs, fmt.Errorf("failed to delete Gateways: %w", err))
 	}
-	vs := NewIstioVirtualService(metav1.ObjectMeta{}, nil)
 	err = n.k8sClient.DeleteAllOf(
 		ctx,
-		&vs,
+		NewUnstructuredIstioVirtualService(),
 		client.InNamespace(task.Namespace),
 		client.MatchingLabels{TaskNetworkLabel: task.Name})
 	if err != nil {
 		logger.Info("Failed to delete VirtualServices", "Error", err)
-		return fmt.Errorf("failed to delete VirtualServices: %w", err)
+		errs = append(errs, fmt.Errorf("failed to delete VirtualServices: %w", err))
 	}
-	dr := NewIstioDestinationRule(metav1.ObjectMeta{}, nil)
 	err = n.k8sClient.DeleteAllOf(
 		ctx,
-		&dr,
+		NewUnstructuredIstioDestinationRule(),
 		client.InNamespace(task.Namespace),
 		client.MatchingLabels{TaskNetworkLabel: task.Name})
 	if err != nil {
 		logger.Info("Failed to delete ServiceEntries", "Error", err)
-		return fmt.Errorf("failed to delete ServiceEntries: %w", err)
+		errs = append(errs, fmt.Errorf("failed to delete ServiceEntries: %w", err))
 	}
-	se := NewIstioServiceEntry(metav1.ObjectMeta{}, nil)
 	err = n.k8sClient.DeleteAllOf(
 		ctx,
-		&se,
+		NewUnstructuredIstioServiceEntry(),
 		client.InNamespace(task.Namespace),
 		client.MatchingLabels{TaskNetworkLabel: task.Name})
 	if err != nil {
 		logger.Info("Failed to delete DestinationRules", "Error", err)
-		return fmt.Errorf("failed to delete DestinationRules: %w", err)
+		errs = append(errs, fmt.Errorf("failed to delete DestinationRules: %w", err))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to delete networking resources: %v", errs)
 	}
 	return nil
 }
@@ -195,10 +192,10 @@ func (n *DefaultNetworkManager) newServer(port uint32) *v1beta1.Server {
 		},
 		Hosts: []string{"*"},
 	}
-	if n.tLSConfig != nil {
+	if n.tlsConfig != nil {
 		srv.Tls = &v1beta1.ServerTLSSettings{
 			Mode:           v1beta1.ServerTLSSettings_MUTUAL,
-			CredentialName: n.tLSConfig.SecretName,
+			CredentialName: n.tlsConfig.SecretName,
 		}
 	}
 	return &srv
@@ -211,21 +208,23 @@ func (n *DefaultNetworkManager) getOrCreateGateway(ctx context.Context, logger l
 	}
 	logger = logger.WithName("Gateway").
 		WithValues("Service", task.Name)
-	gateway := IstioGateway{}
-	err := n.k8sClient.Get(ctx, gatewayName, &gateway)
+	unstructuredGateway := NewUnstructuredIstioGateway()
+	err := n.k8sClient.Get(ctx, gatewayName, unstructuredGateway)
 	if err == nil {
-		logger.Info("Gateway already exists", "Gateway", gateway)
-		return &gateway, nil
+		logger.Info("Gateway already exists", "Gateway", unstructuredGateway)
+		return IstioGatewayFromUnstructured(unstructuredGateway)
+	} else {
+		logger.Info("Gateway does not exist", "Gateway", unstructuredGateway, "Error", err)
 	}
 	// Allocate a free port for the Gateway
 	port, err := n.ingressPortManager.GetFreePort(ctx)
 	if err != nil {
 		logger.Info("Failed to get a free port", "Error", err)
-		return nil, fmt.Errorf("failed to allocate a free port: %w", err)
+		return nil, fmt.Errorf("failed to get a free port: %w", err)
 	}
 	selectors := map[string]string{}
 	selectors["istio"] = "ingressgateway"
-	gateway = NewIstioGateway(
+	gateway := NewIstioGateway(
 		metav1.ObjectMeta{
 			Name:      gatewayName.Name,
 			Namespace: task.Namespace,
@@ -239,7 +238,7 @@ func (n *DefaultNetworkManager) getOrCreateGateway(ctx context.Context, logger l
 			},
 			Selector: selectors,
 		})
-	return &gateway, n.k8sClient.Create(ctx, &gateway)
+	return &gateway, n.k8sClient.Create(ctx, InterfaceToUnstructured(gateway))
 }
 
 func (n *DefaultNetworkManager) getOrCreateVirtualService(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, gateway *IstioGateway) (*IstioVirtualService, error) {
@@ -249,13 +248,13 @@ func (n *DefaultNetworkManager) getOrCreateVirtualService(ctx context.Context, l
 	}
 	logger = logger.WithName("VirtualService").
 		WithValues("Service", task.Name)
-	virtualService := IstioVirtualService{}
-	err := n.k8sClient.Get(ctx, vsName, &virtualService)
+	unstructuredVirtualService := NewUnstructuredIstioVirtualService()
+	err := n.k8sClient.Get(ctx, vsName, unstructuredVirtualService)
 	if err == nil {
-		logger.Info("VirtualService already exists", "VirtualService", virtualService)
-		return &virtualService, nil
+		logger.Info("VirtualService already exists", "VirtualService", unstructuredVirtualService)
+		return IstioVirtualServiceFromUnstructured(unstructuredVirtualService)
 	}
-	virtualService = NewIstioVirtualService(
+	virtualService := NewIstioVirtualService(
 		metav1.ObjectMeta{
 			Name:      vsName.Name,
 			Namespace: gateway.Namespace,
@@ -291,7 +290,7 @@ func (n *DefaultNetworkManager) getOrCreateVirtualService(ctx context.Context, l
 				},
 			},
 		})
-	return &virtualService, n.k8sClient.Create(ctx, &virtualService)
+	return &virtualService, n.k8sClient.Create(ctx, InterfaceToUnstructured(&virtualService))
 }
 
 func (n *DefaultNetworkManager) getOrCreateDestinationRule(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, pId uint, host string) (*IstioDestinationRule, error) {
@@ -301,13 +300,13 @@ func (n *DefaultNetworkManager) getOrCreateDestinationRule(ctx context.Context, 
 	}
 	logger = logger.WithName("DestinationRule").
 		WithValues("Name", ruleName)
-	destinationRule := IstioDestinationRule{}
-	err := n.k8sClient.Get(ctx, ruleName, &destinationRule)
+	unstructuredDestinationRule := NewUnstructuredIstioDestinationRule()
+	err := n.k8sClient.Get(ctx, ruleName, unstructuredDestinationRule)
 	if err == nil {
-		logger.Info("DestinationRule already exists", "DestinationRule", destinationRule)
-		return &destinationRule, nil
+		logger.Info("DestinationRule already exists", "DestinationRule", unstructuredDestinationRule)
+		return IstioDestinationRuleFromUnstructured(unstructuredDestinationRule)
 	}
-	destinationRule = NewIstioDestinationRule(
+	destinationRule := NewIstioDestinationRule(
 		metav1.ObjectMeta{
 			Name:      ruleName.Name,
 			Namespace: task.Namespace,
@@ -325,13 +324,13 @@ func (n *DefaultNetworkManager) getOrCreateDestinationRule(ctx context.Context, 
 				},
 			},
 		})
-	if n.tLSConfig != nil {
+	if n.tlsConfig != nil {
 		destinationRule.Spec.TrafficPolicy.Tls = &v1beta1.ClientTLSSettings{
 			Mode:           v1beta1.ClientTLSSettings_MUTUAL,
-			CredentialName: n.tLSConfig.SecretName,
+			CredentialName: n.tlsConfig.SecretName,
 		}
 	}
-	return &destinationRule, n.k8sClient.Create(ctx, &destinationRule)
+	return &destinationRule, n.k8sClient.Create(ctx, InterfaceToUnstructured(&destinationRule))
 }
 
 func (n *DefaultNetworkManager) createServiceEntry(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, pId uint, host string, port uint32) (*IstioServiceEntry, error) {
@@ -341,13 +340,13 @@ func (n *DefaultNetworkManager) createServiceEntry(ctx context.Context, logger l
 	}
 	logger = logger.WithName("ServiceEntry").
 		WithValues("Name", seName)
-	serviceEntry := IstioServiceEntry{}
-	err := n.k8sClient.Get(ctx, seName, &serviceEntry)
+	unstructuredServiceEntry := NewUnstructuredIstioServiceEntry()
+	err := n.k8sClient.Get(ctx, seName, unstructuredServiceEntry)
 	if err == nil {
-		logger.Info("ServiceEntry already exists", "ServiceEntry", serviceEntry)
-		return &serviceEntry, nil
+		logger.Info("ServiceEntry already exists", "ServiceEntry", unstructuredServiceEntry)
+		return IstioServiceEntryFromUnstructured(unstructuredServiceEntry)
 	}
-	serviceEntry = NewIstioServiceEntry(
+	serviceEntry := NewIstioServiceEntry(
 		metav1.ObjectMeta{
 			Name:      seName.Name,
 			Namespace: task.Namespace,
@@ -369,7 +368,7 @@ func (n *DefaultNetworkManager) createServiceEntry(ctx context.Context, logger l
 			Location:   v1beta1.ServiceEntry_MESH_EXTERNAL,
 			Resolution: v1beta1.ServiceEntry_DNS,
 		})
-	return &serviceEntry, n.k8sClient.Create(ctx, &serviceEntry)
+	return &serviceEntry, n.k8sClient.Create(ctx, InterfaceToUnstructured(&serviceEntry))
 }
 
 func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, pId uint, host string, port uint32) (*IstioVirtualService, error) {
@@ -379,11 +378,11 @@ func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Cont
 	}
 	logger = logger.WithName("VirtualService").
 		WithValues("Name", vsName)
-	virtualService := IstioVirtualService{}
-	err := n.k8sClient.Get(ctx, vsName, &virtualService)
+	unstructuredVirtualService := NewUnstructuredIstioVirtualService()
+	err := n.k8sClient.Get(ctx, vsName, unstructuredVirtualService)
 	if err == nil {
-		logger.Info("VirtualService already exists", "VirtualService", virtualService)
-		return &virtualService, nil
+		logger.Info("VirtualService already exists", "VirtualService", unstructuredVirtualService)
+		return IstioVirtualServiceFromUnstructured(unstructuredVirtualService)
 	}
 	egressPort, err := n.egressPortManager.GetFreePort(ctx)
 	if err != nil {
@@ -391,7 +390,7 @@ func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Cont
 		return nil, fmt.Errorf("failed to get a free egress port: %w", err)
 	}
 	logger.Info("Egress port allocated", "Port", egressPort)
-	virtualService = NewIstioVirtualService(
+	virtualService := NewIstioVirtualService(
 		metav1.ObjectMeta{
 			Name:      vsName.Name,
 			Namespace: task.Namespace,
@@ -449,7 +448,7 @@ func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Cont
 				},
 			},
 		})
-	return &virtualService, n.k8sClient.Create(ctx, &virtualService)
+	return &virtualService, n.k8sClient.Create(ctx, InterfaceToUnstructured(&virtualService))
 }
 
 func (n *DefaultNetworkManager) createEgressResources(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, pId uint, endpoint string) error {

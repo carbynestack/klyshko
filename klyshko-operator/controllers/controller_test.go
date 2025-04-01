@@ -1,9 +1,9 @@
 /*
-Copyright (c) 2022-2024 - for information on the respective copyright owner
-see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
-
-SPDX-License-Identifier: Apache-2.0
-*/
+ * Copyright (c) 2022-2025 - for information on the respective copyright owner
+ * see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 package controllers
 
@@ -55,7 +55,7 @@ const (
 
 var vcpIpAddresses = []string{"172.18.1.128", "172.18.2.128"}
 
-var fakeNetworkManager = &FakeNetworkManager{}
+var fakeNetworkManager = NewFakeNetworkManager()
 
 type vcp struct {
 	cfg       *rest.Config
@@ -177,8 +177,8 @@ type Controller interface {
 func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *clientv3.Client, castorURL string) error {
 	k8sManager, err := ctrl.NewManager(vcp.cfg, ctrl.Options{
 		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",                                             // Avoid colliding metrics servers by disabling
-		Logger:             logf.Log.WithName(fmt.Sprintf("vcp-%d", vcpID)), // use scoped logger to ease debugging
+		MetricsBindAddress: "0",                                                                     // Avoid colliding metrics servers by disabling
+		Logger:             logf.FromContext(context.TODO()).WithName(fmt.Sprintf("vcp-%d", vcpID)), // use scoped logger to ease debugging
 	})
 	if err != nil {
 		return err
@@ -291,7 +291,6 @@ func setupCastorServiceResponders(numberOfAvailableTuples int, tupleType string)
 }
 
 var _ = Describe("In case of shortage of tuples", func() {
-
 	var (
 		ctx       context.Context
 		cancel    context.CancelFunc
@@ -361,7 +360,7 @@ var _ = Describe("Generating tuples", func() {
 			vc, err = setupVC(ctx, NumberOfVCPs)
 			Expect(err).NotTo(HaveOccurred())
 
-			fakeNetworkManager.ResetToFailing()
+			fakeNetworkManager.Reset()
 			scheduler = createScheduler(ctx, vc)
 			jobs = ensureJobCreatedOnEachVcp(ctx, vc, scheduler)
 

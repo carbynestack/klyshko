@@ -15,7 +15,7 @@ import (
 
 // NewFakeNetworkManager creates a new FakeNetworkManager with default failing behavior.
 func NewFakeNetworkManager() *FakeNetworkManager {
-	return (&FakeNetworkManager{}).ResetToFailing()
+	return (&FakeNetworkManager{}).Reset()
 }
 
 type FakeNetworkManager struct {
@@ -53,7 +53,8 @@ func (hnm *FakeNetworkManager) DoReturnOnDeleteNetworkingForTask(err error) *Fak
 	return hnm
 }
 
-func (hnm *FakeNetworkManager) ResetToFailing() *FakeNetworkManager {
+// Reset resets the FakeNetworkManager to its default failing behavior.
+func (hnm *FakeNetworkManager) Reset() *FakeNetworkManager {
 	hnm.createIngressReturnPort = 0
 	hnm.createIngressReturnErr = errors.New("fake ingress not created")
 	hnm.createEgressReturnErr = errors.New("fake egress not created")

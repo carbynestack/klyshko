@@ -8,19 +8,26 @@
 package controllers
 
 import (
+	"encoding/json"
 	"istio.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const istioApiVersion = "networking.istio.io/v1beta1"
+const istioGroup = "networking.istio.io"
+const istioVersion = "v1beta1"
+const istioApiVersion = istioGroup + "/" + istioVersion
 
 // This file contains the definition of the istio k8s resources managed by the
 // Klyshko operator. This includes the Gateway, VirtualService, DestinationRule
 // and ServiceEntry resources. However, the resources only contain the fields
 // that are relevant to the operator.
 // This is a hacky workaround to avoid using the Istio client-go library, which
-// causes compatible issues with dependencies of other libraries.
+// causes compatible issues with dependencies of other libraries. When
+// interacting with the Istio resources, the operator will use the unstructured
+// k8s client as resources are not defined in the right package and therefore
+// will not be registered with the required GroupVersionKind.
 
 func NewIstioGateway(meta metav1.ObjectMeta, spec *v1beta1.Gateway) IstioGateway {
 	return IstioGateway{
@@ -33,22 +40,24 @@ func NewIstioGateway(meta metav1.ObjectMeta, spec *v1beta1.Gateway) IstioGateway
 	}
 }
 
-type IstioGateway struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty" `
-	Spec              *v1beta1.Gateway `json:"spec,omitempty"`
+func NewUnstructuredIstioGateway() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": istioApiVersion,
+			"kind":       "Gateway",
+		},
+	}
 }
 
-func (g *IstioGateway) DeepCopyObject() runtime.Object {
-	if g == nil {
-		return nil
-	}
-	ng := new(IstioGateway)
-	*ng = *g
-	ng.TypeMeta = g.TypeMeta
-	ng.ObjectMeta = g.ObjectMeta
-	ng.Spec = g.Spec.DeepCopy()
-	return ng
+func IstioGatewayFromUnstructured(ugw *unstructured.Unstructured) (*IstioGateway, error) {
+	igw := &IstioGateway{}
+	return igw, runtime.DefaultUnstructuredConverter.FromUnstructured(ugw.Object, igw)
+}
+
+type IstioGateway struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              *v1beta1.Gateway `json:"spec,omitempty"`
 }
 
 func NewIstioVirtualService(meta metav1.ObjectMeta, spec *v1beta1.VirtualService) IstioVirtualService {
@@ -62,24 +71,38 @@ func NewIstioVirtualService(meta metav1.ObjectMeta, spec *v1beta1.VirtualService
 	}
 }
 
+func NewUnstructuredIstioVirtualService() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": istioApiVersion,
+			"kind":       "VirtualService",
+		},
+	}
+}
+
+func IstioVirtualServiceFromUnstructured(uvs *unstructured.Unstructured) (*IstioVirtualService, error) {
+	ivs := &IstioVirtualService{}
+	return ivs, runtime.DefaultUnstructuredConverter.FromUnstructured(uvs.Object, ivs)
+}
+
 type IstioVirtualService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              *v1beta1.VirtualService `json:"spec,omitempty"`
 }
 
-func (vs *IstioVirtualService) DeepCopyObject() runtime.Object {
-	if vs == nil {
-		return nil
+func NewUnstructuredIstioDestinationRule() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": istioApiVersion,
+			"kind":       "DestinationRule",
+		},
 	}
-	nvs := new(IstioVirtualService)
-	*nvs = *vs
-	nvs.TypeMeta = vs.TypeMeta
-	nvs.ObjectMeta = vs.ObjectMeta
-	if vs.Spec != nil {
-		nvs.Spec = vs.Spec.DeepCopy()
-	}
-	return nvs
+}
+
+func IstioDestinationRuleFromUnstructured(udr *unstructured.Unstructured) (*IstioDestinationRule, error) {
+	idr := &IstioDestinationRule{}
+	return idr, runtime.DefaultUnstructuredConverter.FromUnstructured(udr.Object, idr)
 }
 
 func NewIstioDestinationRule(meta metav1.ObjectMeta, destinationRule *v1beta1.DestinationRule) IstioDestinationRule {
@@ -99,18 +122,18 @@ type IstioDestinationRule struct {
 	Spec              *v1beta1.DestinationRule `json:"spec,omitempty"`
 }
 
-func (dr *IstioDestinationRule) DeepCopyObject() runtime.Object {
-	if dr == nil {
-		return nil
+func NewUnstructuredIstioServiceEntry() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": istioApiVersion,
+			"kind":       "ServiceEntry",
+		},
 	}
-	ndr := new(IstioDestinationRule)
-	*ndr = *dr
-	ndr.TypeMeta = dr.TypeMeta
-	ndr.ObjectMeta = dr.ObjectMeta
-	if dr.Spec != nil {
-		ndr.Spec = dr.Spec.DeepCopy()
-	}
-	return ndr
+}
+
+func IstioServiceEntryFromUnstructured(use *unstructured.Unstructured) (*IstioServiceEntry, error) {
+	ise := &IstioServiceEntry{}
+	return ise, runtime.DefaultUnstructuredConverter.FromUnstructured(use.Object, ise)
 }
 
 func NewIstioServiceEntry(meta metav1.ObjectMeta, spec *v1beta1.ServiceEntry) IstioServiceEntry {
@@ -130,71 +153,11 @@ type IstioServiceEntry struct {
 	Spec              *v1beta1.ServiceEntry `json:"spec,omitempty"`
 }
 
-func (se *IstioServiceEntry) DeepCopyObject() runtime.Object {
-	if se == nil {
-		return nil
+func InterfaceToUnstructured(igw interface{}) *unstructured.Unstructured {
+	var obj map[string]interface{}
+	data, _ := json.Marshal(igw)
+	_ = json.Unmarshal(data, &obj)
+	return &unstructured.Unstructured{
+		Object: obj,
 	}
-	nse := new(IstioServiceEntry)
-	*nse = *se
-	nse.TypeMeta = se.TypeMeta
-	nse.ObjectMeta = se.ObjectMeta
-	if se.Spec != nil {
-		nse.Spec = se.Spec.DeepCopy()
-	}
-	return nse
 }
-
-type IstioGatewayList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IstioGateway `json:"items"`
-}
-
-func (gl *IstioGatewayList) DeepCopyObject() runtime.Object {
-	if gl == nil {
-		return nil
-	}
-	ngl := new(IstioGatewayList)
-	*ngl = *gl
-	ngl.TypeMeta = gl.TypeMeta
-	ngl.ListMeta = gl.ListMeta
-	ngl.Items = make([]IstioGateway, len(gl.Items))
-	for i := range gl.Items {
-		ngl.Items[i] = *gl.Items[i].DeepCopyObject().(*IstioGateway)
-	}
-	return ngl
-}
-
-type IstioVirtualServiceList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []IstioVirtualService `json:"items"`
-}
-
-func (vsl *IstioVirtualServiceList) DeepCopyObject() runtime.Object {
-	if vsl == nil {
-		return nil
-	}
-	nvsl := new(IstioVirtualServiceList)
-	*nvsl = *vsl
-	nvsl.TypeMeta = vsl.TypeMeta
-	nvsl.ListMeta = vsl.ListMeta
-	nvsl.Items = make([]IstioVirtualService, len(vsl.Items))
-	for i := range vsl.Items {
-		nvsl.Items[i] = *vsl.Items[i].DeepCopyObject().(*IstioVirtualService)
-	}
-	return nvsl
-}
-
-//
-//type IstioDestinationRuleList struct {
-//	metav1.TypeMeta `json:",inline"`
-//	metav1.ListMeta `json:"metadata,omitempty"`
-//	Items           []IstioDestinationRule `json:"items"`
-//}
-//
-//type ServiceEntryList struct {
-//	metav1.TypeMeta `json:",inline"`
-//	metav1.ListMeta `json:"metadata,omitempty"`
-//	Items           []ServiceEntry `json:"items"`
-//}

@@ -13,6 +13,9 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"istio.io/api/networking/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/strings/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,11 +53,11 @@ type usedPortSupplier interface {
 // available ports for the Istio gateways. It keeps track of the ports that are
 // already in use by the gateways and provides a method to find a free port
 // within the configured port range.
-func NewGatewayPortManager(k8sClient client.Client, portRange *PortRange) PortManager {
+func NewGatewayPortManager(k8sReader client.Reader, portRange *PortRange) PortManager {
 	return &defaultPortManager{
 		usedPortSupplier: &gatewayUsedPortSupplier{
 			portRange: portRange,
-			k8sClient: k8sClient,
+			k8sReader: k8sReader,
 			logger:    ctrl.Log.WithName("GatewayPortManager"),
 		},
 		portRange: portRange,
@@ -66,19 +69,17 @@ func NewGatewayPortManager(k8sClient client.Client, portRange *PortRange) PortMa
 // available ports for the egress traffic. It keeps track of the ports that are
 // already in use by the egress gateway and provides a method to find a free
 // port within the configured port range.
-func NewEgressPortManager(k8sClient client.Client,
+func NewEgressPortManager(k8sReader client.Client,
 	egressServiceHost string,
 	egressGatewayName string,
-	egressGatewayNamespace string,
 	portRange *PortRange) PortManager {
 	return &defaultPortManager{
 		usedPortSupplier: &egressUsedPortSupplier{
-			k8sClient:              k8sClient,
-			egressServiceHost:      egressServiceHost,
-			egressGatewayName:      egressGatewayName,
-			egressGatewayNamespace: egressGatewayNamespace,
-			portRange:              portRange,
-			logger:                 ctrl.Log.WithName("EgressPortManager"),
+			k8sReader:         k8sReader,
+			egressServiceHost: egressServiceHost,
+			egressGatewayName: egressGatewayName,
+			portRange:         portRange,
+			logger:            ctrl.Log.WithName("EgressPortManager"),
 		},
 		portRange: portRange,
 		mtx:       sync.Mutex{},
@@ -123,23 +124,34 @@ func (m *defaultPortManager) GetFreePort(ctx context.Context) (uint32, error) {
 // lock on mtx before calling them.
 type gatewayUsedPortSupplier struct {
 	portRange *PortRange
-	k8sClient client.Client
+	k8sReader client.Reader
 	logger    logr.Logger
 }
 
 // getUsedPortsInRange iterates over the list of Istio gateways and collects that ports that are within the port range
 // and already in use.
 func (m *gatewayUsedPortSupplier) getUsedPortsInRange(ctx context.Context) ([]uint32, error) {
-	var usedPorts []uint32
-
-	gateways := IstioGatewayList{}
-	err := m.k8sClient.List(ctx, &gateways, client.InNamespace("default"))
+	var usedPorts = make([]uint32, 0)
+	gateways := &unstructured.UnstructuredList{}
+	gateways.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.istio.io",
+		Version: "v1beta1",
+		Kind:    "Gateway",
+	})
+	err := m.k8sReader.List(ctx, gateways, client.InNamespace("default"))
 	if err != nil {
-		m.logger.Error(err, "unable to retrieve the gateways")
-		return []uint32{}, err
+		m.logger.Error(err, "unable to list gateways")
+		return usedPorts, err
 	}
 	for _, gw := range gateways.Items {
-		for _, server := range gw.Spec.Servers {
+		igw := IstioGateway{}
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(gw.Object, &igw)
+		if err != nil {
+			m.logger.Error(err, "unable to convert unstructured gateway to typed gateway")
+			continue
+		}
+		m.logger.Info("processing gateway", "gateway", igw)
+		for _, server := range igw.Spec.Servers {
 			if server.Port.Number >= m.portRange.Min && server.Port.Number <= m.portRange.Max {
 				usedPorts = append(usedPorts, server.Port.Number)
 			}
@@ -153,30 +165,41 @@ func (m *gatewayUsedPortSupplier) getUsedPortsInRange(ctx context.Context) ([]ui
 // Methods are not thread-safe. Public methods are expected to obtain a
 // lock on mtx before calling them.
 type egressUsedPortSupplier struct {
-	k8sClient              client.Client
-	egressServiceHost      string
-	egressGatewayName      string
-	egressGatewayNamespace string
-	portRange              *PortRange
-	logger                 logr.Logger
+	k8sReader         client.Reader
+	egressServiceHost string
+	egressGatewayName string
+	portRange         *PortRange
+	logger            logr.Logger
 }
 
 // getUsedPortsInRange iterates over the list of Istio gateways and collects that ports that are within the port range
 // and already in use.
 func (m *egressUsedPortSupplier) getUsedPortsInRange(ctx context.Context) ([]uint32, error) {
-	var usedPorts []uint32
-	vss := IstioVirtualServiceList{}
-	err := m.k8sClient.List(ctx, &vss, client.InNamespace(m.egressGatewayNamespace))
+	usedPorts := make([]uint32, 0)
+	vss := &unstructured.UnstructuredList{}
+	vss.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "networking.istio.io",
+		Version: "v1beta1",
+		Kind:    "VirtualService",
+	})
+	err := m.k8sReader.List(ctx, vss, client.InNamespace("default"))
 	if err != nil {
-		m.logger.Error(err, "unable to retrieve the egress gateway")
+		m.logger.Error(err, "unable to list virtual services")
 		return []uint32{}, err
 	}
 	for _, vs := range vss.Items {
-		if !slices.Contains(vs.Spec.GetGateways(), m.egressGatewayName) {
+		ivs := IstioVirtualService{}
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(vs.Object, &ivs)
+		if err != nil {
+			m.logger.Error(err, "unable to convert unstructured virtual service to istio virtual service")
 			continue
 		}
-		usedPorts = append(usedPorts, m.getUsedPortsFromRoutes(vs.Spec.Http)...)
-		usedPorts = append(usedPorts, m.getUsedPortsFromRoutes(vs.Spec.Tcp)...)
+		m.logger.Info("virtual service", "virtual service", ivs)
+		if !slices.Contains(ivs.Spec.GetGateways(), m.egressGatewayName) {
+			continue
+		}
+		usedPorts = append(usedPorts, m.getUsedPortsFromRoutes(ivs.Spec.Http)...)
+		usedPorts = append(usedPorts, m.getUsedPortsFromRoutes(ivs.Spec.Tcp)...)
 	}
 	return usedPorts, nil
 }

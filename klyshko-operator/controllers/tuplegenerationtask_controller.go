@@ -150,7 +150,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 
 		// Create the service used for inter-CRG networking, if not existing
-		err := r.getOrCreateService(ctx, taskKey, task)
+		err = r.getOrCreateService(ctx, taskKey, task)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("unable to get or create service for task %v: %w", req.Name, err)
 		}
