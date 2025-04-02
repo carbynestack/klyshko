@@ -82,13 +82,24 @@ helm install --name my-release -f values.yaml klyshko
 
 ### Controller
 
-| Parameter                     | Description                                                     | Default                                    |
-| ----------------------------- | --------------------------------------------------------------- | ------------------------------------------ |
-| `controller.image.registry`   | Image registry used to pull the controller image                | `ghcr.io`                                  |
-| `controller.image.repository` | Controller image name                                           | `carbynestack/klyshko-operator-controller` |
-| `controller.image.tag`        | Controller image tag                                            | `latest`                                   |
-| `controller.image.pullPolicy` | Controller image pull policy                                    | `IfNotPresent`                             |
-| `controller.etcdEndpoint`     | The address of the etcd service used for cross VCP coordination | `172.18.1.129:2379`                        |
+| Parameter                          | Description                                                            | Default                                              |
+| ---------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| `controller.image.registry`        | Image registry used to pull the controller image                       | `ghcr.io`                                            |
+| `controller.image.repository`      | Controller image name                                                  | `carbynestack/klyshko-operator-controller`           |
+| `controller.image.tag`             | Controller image tag                                                   | `latest`                                             |
+| `controller.image.pullPolicy`      | Controller image pull policy                                           | `IfNotPresent`                                       |
+| `controller.etcd.endpoint`         | The address of the etcd service used for cross VCP coordination        | `172.18.1.129:2379`                                  |
+| `controller.etcd.dialTimeout`      | The timeout (in seconds) for the etcd client to establish a connection | `5`                                                  |
+| `controller.castorUrl`             | The URL of the Castor service                                          | `http://castor:8080`                                 |
+| `controller.vcpIp`                 | The IP address of the VCP accessible to other VCPs in the VC           | S                                                    |
+| `controller.ingress.portRange.min` | The minimum port number for the ingress port range                     | `30500`                                              |
+| `controller.ingress.portRange.max` | The maximum port number for the ingress port range                     | `30504`                                              |
+| `controller.egress.portRange.min`  | The minimum port number for the egress port range                      | `30500`                                              |
+| `controller.egress.portRange.max`  | The maximum port number for the egress port range                      | `30550`                                              |
+| `controller.egress.serviceHost`    | The hostname of the Istio egress gateway service                       | `istio-egressgateway.istio-system.svc.cluster.local` |
+| `controller.egress.gatewayName`    | The name of the Istio Gateway used for egress traffic                  | `partner-egressgateway`                              |
+| `controller.tls.enabled`           | Enable TLS for inter-VCP communication                                 | `false`                                              |
+| `controller.tls.secretName`        | The k8s secret containing the TLS client and CA certificates           |                                                      |
 
 ### Provisioner
 
