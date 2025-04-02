@@ -444,21 +444,32 @@ var _ = Describe("When managing network resources", func() {
 					Expect(err).NotTo(HaveOccurred())
 					createdResources := fakeK8sClient.CreateCallParams
 					Expect(createdResources).To(HaveLen(len(endpoints) * 3))
-					idx := uint(0)
+					// as the order when iterating maps is not guaranteed, we have to do
+					// some extra work
+					endpointsToServe := make(map[uint]string)
 					for playerId, endpoint := range endpoints {
+						endpointsToServe[playerId] = endpoint
+					}
+					for i := 0; i < len(endpoints); i++ {
+						generatedDR := createdResources[i*3].obj
+						pIdString := generatedDR.GetName()[strings.LastIndex(generatedDR.GetName(), "-")+1:]
+						pId, _ := strconv.ParseUint(pIdString, 10, 32)
+						endpoint, ok := endpointsToServe[uint(pId)]
+						Expect(ok).To(BeTrue())
+						delete(endpointsToServe, uint(pId))
 						hostPort := strings.Split(endpoint, ":")
 						playerPort, _ := strconv.ParseUint(hostPort[1], 10, 32)
-						Expect(createdResources[idx*3].obj).To(
+						Expect(generatedDR).To(
 							Equal(InterfaceToUnstructured(
-								createExpectedDestinationRule(task, playerId, hostPort[0], tlsConfig))))
-						Expect(createdResources[idx*3+1].obj).To(
+								createExpectedDestinationRule(task, uint(pId), hostPort[0], tlsConfig))))
+						Expect(createdResources[i*3+1].obj).To(
 							Equal(InterfaceToUnstructured(
-								createExpectedServiceEntry(task, playerId, hostPort[0], uint32(playerPort)))))
-						Expect(createdResources[idx*3+2].obj).To(
+								createExpectedServiceEntry(task, uint(pId), hostPort[0], uint32(playerPort)))))
+						Expect(createdResources[i*3+2].obj).To(
 							Equal(InterfaceToUnstructured(
-								createExpectedEgressVirtualService(task, playerId, hostPort[0], uint32(playerPort), egressPorts[idx], egressGatewayName, egressServiceHost))))
-						idx++
+								createExpectedEgressVirtualService(task, uint(pId), hostPort[0], uint32(playerPort), egressPorts[i], egressGatewayName, egressServiceHost))))
 					}
+					Expect(len(endpointsToServe)).To(BeZero())
 				})
 			})
 		})
