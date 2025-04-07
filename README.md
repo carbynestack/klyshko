@@ -302,6 +302,14 @@ the tuple generation and provisioning process.
 #### Output
 
 - `KII_TUPLE_FILE`: The file the generated tuples must be written to.
+- `KII_DONE_FILE`: The file the generated tuples must be written to.
+
+#### Termination & Sidecar support
+
+To allow potential sidecars react to the termination of the CRG, the CRG is
+expected to create a file with the path defined in the environment variable
+`KII_DONE_FILE` when the tuple generation is finished, whether successful or
+not.
 
 ### Configuration Parameters
 

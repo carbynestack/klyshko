@@ -36,6 +36,8 @@ const (
 
 	// InterCRGNetworkingPort is the network used for inter-CRG communication.
 	InterCRGNetworkingPort = 5000
+
+	CurlImage = "curlimages/curl:latest"
 )
 
 // TupleGenerationTaskReconciler reconciles a TupleGenerationTask object.
@@ -242,6 +244,14 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			}, r.setState(ctx, *taskKey, status, klyshkov1alpha1.TaskFailed)
 		}
 	case klyshkov1alpha1.TaskFailed, klyshkov1alpha1.TaskCompleted:
+		// Create egress network resources for the task
+		err = r.NetworkManager.DeleteNetworkingForTask(ctx, task)
+		if err != nil {
+			// This leaves the system in where networking resources remain allocated
+			// but the task is in a terminal state. As this is expected to be unlikely,
+			// we log the error and continue. However, this may be revised in the future.
+			logger.Error(err, "failed to delete networking resources for task", "task", taskKey)
+		}
 		logger.V(logging.DEBUG).Info("Task reached a terminal state")
 		return ctrl.Result{}, r.deletePVC(ctx, taskKey)
 	default:
@@ -557,7 +567,8 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 			Name:      task.Name,
 			Namespace: task.Namespace,
 			Labels: map[string]string{
-				TaskLabel: task.Name,
+				TaskLabel:        task.Name,
+				"sidecar/inject": "true",
 			},
 		},
 		Spec: v1.PodSpec{
@@ -603,6 +614,10 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 								Name:  "KII_TUPLE_FILE",
 								Value: "/kii/tuples",
 							},
+							{
+								Name:  "KII_DONE_FILE",
+								Value: "/kii/done",
+							},
 						},
 						endpointEnvVars...,
 					),
@@ -625,6 +640,48 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 							Name:      "extra-params",
 							ReadOnly:  true,
 							MountPath: "/etc/kii/extra-params",
+						},
+					},
+					Lifecycle: &v1.Lifecycle{
+						PreStop: &v1.Handler{
+							Exec: &v1.ExecAction{
+								// This is a workaround to terminate the istio-proxy sidecar
+								// when generator pod is finished. There may be other options
+								// for newer k8s versions, but adds somehwat backwards
+								// compatibility.
+								// This handler creates a file in the shared volume which is
+								// then used by the curl container to trigger the istio-proxy
+								// termination.
+								// See https://istio.io/latest/blog/2023/native-sidecars/ and
+								// https://access.redhat.com/solutions/6280111
+								Command: []string{
+									"sh",
+									"-c",
+									"touch ${KII_DONE_FILE}",
+								},
+							},
+						},
+					},
+				}, {
+					Name:            "curl",
+					Image:           CurlImage,
+					ImagePullPolicy: podSpecTemplate.Spec.Container.ImagePullPolicy,
+					Command: []string{
+						"sh",
+						"-c",
+						"while [ ! -f ${KII_DONE_FILE} ]; do sleep 1; done; curl -fsI -X POST http://localhost:15000/quitquitquit; exit",
+					},
+					Env: []v1.EnvVar{
+						{
+							Name:  "KII_DONE_FILE",
+							Value: "/kii/done",
+						},
+					},
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      "kii",
+							MountPath: "/kii",
+							ReadOnly:  true,
 						},
 					},
 				},
@@ -699,9 +756,6 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name,
 			Namespace: name.Namespace,
-			Labels: map[string]string{
-				"sidecar.istio.io/inject": "true",
-			},
 		},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{

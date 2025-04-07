@@ -594,10 +594,12 @@ func ensureGeneratorPodsCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks
 	})
 	for _, pod := range pods {
 		Expect(pod.Spec.Affinity).To(Equal(testSpec.Spec.Affinity))
-		Expect(pod.Spec.Containers).To(HaveLen(1))
+		Expect(pod.Spec.Containers).To(HaveLen(2))
 		Expect(pod.Spec.Containers[0].Image).To(Equal(testSpec.Spec.Container.Image))
 		Expect(pod.Spec.Containers[0].ImagePullPolicy).To(Equal(testSpec.Spec.Container.ImagePullPolicy))
 		Expect(pod.Spec.Containers[0].Resources).To(Equal(testSpec.Spec.Container.Resources))
+		Expect(pod.Spec.Containers[1].Image).To(Equal(CurlImage))
+		Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(testSpec.Spec.Container.ImagePullPolicy))
 	}
 	return pods
 }

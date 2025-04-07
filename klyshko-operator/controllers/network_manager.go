@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 const (
@@ -62,6 +63,7 @@ func NewNetworkManager(ingressPortRange *PortRange, egressServiceHost string,
 			egressGatewayName,
 			egressPortRange),
 		tlsConfig: tlsConfig,
+		mtx:       sync.Mutex{},
 	}, nil
 }
 
@@ -81,6 +83,7 @@ type DefaultNetworkManager struct {
 	egressPortManager PortManager
 	// tlsConfig is the configuration used to create the TLS secret. If nil, endpoints are not secured.
 	tlsConfig *TLSConfig
+	mtx       sync.Mutex
 }
 
 // CreateIngressNetworkingForTask creates the necessary Istio ingress resources
@@ -88,6 +91,9 @@ type DefaultNetworkManager struct {
 // It returns the port number where the task is available or an error if the
 // creation failed.
 func (n *DefaultNetworkManager) CreateIngressNetworkingForTask(ctx context.Context, task *klyshkov1alpha1.TupleGenerationTask) (uint32, error) {
+	// Lock the mutex to prevent concurrent access to the ingress port manager
+	n.mtx.Lock()
+	defer n.mtx.Unlock()
 	logger := log.FromContext(ctx).
 		WithName("Networking").
 		WithName("Ingress").
@@ -115,6 +121,9 @@ func (n *DefaultNetworkManager) CreateIngressNetworkingForTask(ctx context.Conte
 // for the task.
 // It returns an error if the creation failed.
 func (n *DefaultNetworkManager) CreateEgressNetworkingForTask(ctx context.Context, task *klyshkov1alpha1.TupleGenerationTask, endpoints map[uint]string) error {
+	// Lock the mutex to prevent concurrent access to the egress port manager
+	n.mtx.Lock()
+	defer n.mtx.Unlock()
 	logger := log.FromContext(ctx).
 		WithName("Networking").
 		WithName("Egress").
@@ -135,6 +144,9 @@ func (n *DefaultNetworkManager) CreateEgressNetworkingForTask(ctx context.Contex
 // It collects errors from the deletion of the resources and returns an error if
 // the deletion of any resource type failed.
 func (n *DefaultNetworkManager) DeleteNetworkingForTask(ctx context.Context, task *klyshkov1alpha1.TupleGenerationTask) error {
+	// Lock the mutex to ensure all resources are deleted before a port may be reused
+	n.mtx.Lock()
+	defer n.mtx.Unlock()
 	logger := log.FromContext(ctx).
 		WithName("Networking").
 		WithName("Delete").
@@ -180,6 +192,7 @@ func (n *DefaultNetworkManager) DeleteNetworkingForTask(ctx context.Context, tas
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to delete networking resources: %v", errs)
 	}
+	logger.Info("Deleted all networking resources for task", "Task", task.Name)
 	return nil
 }
 
