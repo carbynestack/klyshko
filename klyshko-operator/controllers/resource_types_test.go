@@ -13,21 +13,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func NewIstioGatewayUsingPort(port uint32) *IstioGateway {
+func NewIstioGatewayUsingPort(istioSelector string, tcpPort uint32) *IstioGateway {
 	return &IstioGateway{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "networking.istio.io/v1beta1",
 			Kind:       "Gateway",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("gateway-%d", port),
+			Name:      fmt.Sprintf("gateway-%d", tcpPort),
 			Namespace: "default",
 		},
 		Spec: &v1beta1.Gateway{
+			Selector: map[string]string{
+				"istio": istioSelector,
+			},
 			Servers: []*v1beta1.Server{
 				{
 					Port: &v1beta1.Port{
-						Number: port,
+						Number: tcpPort,
 					},
 				},
 			},

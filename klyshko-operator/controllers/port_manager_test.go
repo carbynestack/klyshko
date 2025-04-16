@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sync"
 )
 
 var _ = Describe("Managing ports", func() {
@@ -31,7 +30,6 @@ var _ = Describe("Managing ports", func() {
 		portManager = &defaultPortManager{
 			usedPortSupplier: fakeUsedPortSupplier,
 			portRange:        portRange,
-			mtx:              sync.Mutex{},
 		}
 	})
 
@@ -170,13 +168,13 @@ var _ = Describe("Finding used ports", func() {
 					fakeK8sReader.ListReturnError = nil
 					items := make([]unstructured.Unstructured, 4)
 					items[0] = *InterfaceToUnstructured(
-						NewIstioGatewayUsingPort(30000))
+						NewIstioGatewayUsingPort("ingressgateway", 30000))
 					items[1] = *InterfaceToUnstructured(
-						NewIstioGatewayUsingPort(30500))
+						NewIstioGatewayUsingPort("ingressgateway", 30500))
 					items[2] = *InterfaceToUnstructured(
-						NewIstioGatewayUsingPort(30502))
+						NewIstioGatewayUsingPort("ingressgateway", 30502))
 					items[3] = *InterfaceToUnstructured(
-						NewIstioGatewayUsingPort(30505))
+						NewIstioGatewayUsingPort("ingressgateway", 30505))
 					fakeK8sReader.ListReturnObject = &unstructured.UnstructuredList{
 						Items: items,
 					}
@@ -194,7 +192,6 @@ var _ = Describe("Finding used ports", func() {
 	Describe("for egress gateways", func() {
 		var (
 			portSupplier      usedPortSupplier
-			egressGatewayName = "test-egressgateway"
 			egressServiceHost = "test-egressgateway.default.svc.cluster.local"
 		)
 
@@ -203,7 +200,6 @@ var _ = Describe("Finding used ports", func() {
 				portRange:         portRange,
 				k8sReader:         fakeK8sReader,
 				egressServiceHost: egressServiceHost,
-				egressGatewayName: egressGatewayName,
 				logger:            ctrl.Log.WithName("test").WithName("EgressPortManager"),
 			}
 		})
@@ -238,11 +234,15 @@ var _ = Describe("Finding used ports", func() {
 			When("virtual services exist", func() {
 				BeforeEach(func() {
 					fakeK8sReader.ListReturnError = nil
-					items := make([]unstructured.Unstructured, 2)
+					items := make([]unstructured.Unstructured, 4)
 					items[0] = *InterfaceToUnstructured(
-						NewIstioVirtualServiceUsingPort(egressGatewayName, egressServiceHost, 30400, 30500))
+						NewIstioGatewayUsingPort("egressgateway", 30400))
 					items[1] = *InterfaceToUnstructured(
-						NewIstioVirtualServiceUsingPort(egressGatewayName, egressServiceHost, 30502, 30505))
+						NewIstioGatewayUsingPort("egressgateway", 30500))
+					items[2] = *InterfaceToUnstructured(
+						NewIstioGatewayUsingPort("egressgateway", 30502))
+					items[3] = *InterfaceToUnstructured(
+						NewIstioGatewayUsingPort("ingressgateway", 30504))
 					fakeK8sReader.ListReturnObject = &unstructured.UnstructuredList{
 						Items: items,
 					}

@@ -116,26 +116,26 @@ type FakeK8sWriter struct {
 	DeleteAllCallParams  []DeleteAllOfParams
 }
 
-func (fkw *FakeK8sWriter) Create(ctx context.Context, obj client.Object, options ...client.CreateOption) error {
+func (fkw *FakeK8sWriter) Create(_ context.Context, obj client.Object, options ...client.CreateOption) error {
 	fkw.CreateCallParams = append(fkw.CreateCallParams, CreateParams{obj, options})
 	return fkw.CreateReturnError
 }
 
-func (fkw *FakeK8sWriter) Delete(ctx context.Context, obj client.Object, Params ...client.DeleteOption) error {
+func (fkw *FakeK8sWriter) Delete(_ context.Context, obj client.Object, Params ...client.DeleteOption) error {
 	fkw.DeleteCallParams = append(fkw.DeleteCallParams, DeleteParams{obj, Params})
 	return fkw.DeleteReturnError
 }
 
-func (fkw *FakeK8sWriter) Update(ctx context.Context, obj client.Object, options ...client.UpdateOption) error {
+func (fkw *FakeK8sWriter) Update(_ context.Context, obj client.Object, options ...client.UpdateOption) error {
 	fkw.UpdateCallParams = append(fkw.UpdateCallParams, UpdateParams{obj, options})
 	return fkw.UpdateReturnError
 }
 
-func (fkw *FakeK8sWriter) Patch(ctx context.Context, obj client.Object, patch client.Patch, options ...client.PatchOption) error {
+func (fkw *FakeK8sWriter) Patch(_ context.Context, obj client.Object, patch client.Patch, options ...client.PatchOption) error {
 	fkw.PatchCallParams = append(fkw.PatchCallParams, PatchParams{obj, patch, options})
 	return fkw.PatchReturnError
 }
-func (fkw *FakeK8sWriter) DeleteAllOf(ctx context.Context, obj client.Object, options ...client.DeleteAllOfOption) error {
+func (fkw *FakeK8sWriter) DeleteAllOf(_ context.Context, obj client.Object, options ...client.DeleteAllOfOption) error {
 	fkw.DeleteAllCallParams = append(fkw.DeleteAllCallParams, DeleteAllOfParams{obj, options})
 	return fkw.DeleteAllReturnError
 }

@@ -15,8 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"istio.io/api/networking/v1beta1"
+	isec "istio.io/api/security/v1beta1"
+	itype "istio.io/api/type/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"strconv"
 	"strings"
@@ -40,7 +42,6 @@ var _ = Describe("When managing network resources", func() {
 			},
 		}
 		egressServiceHost = "test.gateway.host"
-		egressGatewayName = "test-gateway"
 		logger            = ctrl.Log.WithName("Test").WithName("NetworkManager")
 	)
 
@@ -62,17 +63,16 @@ var _ = Describe("When managing network resources", func() {
 				k8sClient:          fakeK8sClient,
 				ingressPortManager: fakeIngressPortManager,
 				egressServiceHost:  egressServiceHost,
-				egressGatewayName:  egressGatewayName,
 				egressPortManager:  fakeEgressPortManager,
 				tlsConfig:          tlsConfig,
 			}
 		)
 
-		Context("when creating the gateway for a task", func() {
+		Context("when creating the ingress gateway for a task", func() {
 
 			When("gateway with name already exists", func() {
 				var (
-					expectedGw = createExpectedIstioGateway(task, 30500, tlsConfig)
+					expectedGw = createExpectedIstioIngressGateway(task, 30500, tlsConfig)
 				)
 
 				BeforeEach(func() {
@@ -81,7 +81,7 @@ var _ = Describe("When managing network resources", func() {
 				})
 
 				It("should return the existing one", func() {
-					gw, err := networkManager.getOrCreateGateway(ctx, logger, task)
+					gw, err := networkManager.getOrCreateIngressGateway(ctx, logger, task)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(gw).To(Equal(expectedGw))
 				})
@@ -91,7 +91,7 @@ var _ = Describe("When managing network resources", func() {
 
 				When("getting a free port fails", func() {
 					It("should return an error", func() {
-						gw, err := networkManager.getOrCreateGateway(ctx, logger, task)
+						gw, err := networkManager.getOrCreateIngressGateway(ctx, logger, task)
 						Expect(gw).To(BeNil())
 						Expect(err).To(HaveOccurred())
 						Expect(err.Error()).To(ContainSubstring("failed to get a free port"))
@@ -117,7 +117,7 @@ var _ = Describe("When managing network resources", func() {
 						})
 
 						It("should return an error", func() {
-							_, err := networkManager.getOrCreateGateway(ctx, logger, task)
+							_, err := networkManager.getOrCreateIngressGateway(ctx, logger, task)
 							Expect(err).To(HaveOccurred())
 							Expect(err.Error()).To(ContainSubstring("failed to create gateway"))
 						})
@@ -125,14 +125,14 @@ var _ = Describe("When managing network resources", func() {
 
 					When("creating the gateway succeeds", func() {
 						var (
-							expectedGw = createExpectedIstioGateway(task, availablePort, tlsConfig)
+							expectedGw = createExpectedIstioIngressGateway(task, availablePort, tlsConfig)
 						)
 						BeforeEach(func() {
 							fakeK8sClient.CreateReturnError = nil
 						})
 
 						It("should create a new one", func() {
-							gw, err := networkManager.getOrCreateGateway(ctx, logger, task)
+							gw, err := networkManager.getOrCreateIngressGateway(ctx, logger, task)
 							Expect(err).NotTo(HaveOccurred())
 							Expect(gw).To(Equal(expectedGw))
 						})
@@ -141,10 +141,57 @@ var _ = Describe("When managing network resources", func() {
 			})
 		})
 
+		Context("when creating the authorization policy for a task", func() {
+			var (
+				tcpPort    = uint32(30500)
+				gateway    = createExpectedIstioIngressGateway(task, tcpPort, tlsConfig)
+				expectedAp = createExpectedAuthorizationPolicy(task, tcpPort)
+			)
+
+			When("authorization policy with name already exists", func() {
+				BeforeEach(func() {
+					fakeK8sClient.GetReturnObject = InterfaceToUnstructured(expectedAp)
+					fakeK8sClient.GetReturnError = nil
+				})
+
+				It("should return the existing one", func() {
+					ap, err := networkManager.getOrCreateAuthorizationPolicy(ctx, logger, task, gateway)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ap).To(Equal(expectedAp))
+				})
+			})
+
+			When("authorization policy with name does not exist", func() {
+				When("creating the authorization policy fails", func() {
+					BeforeEach(func() {
+						fakeK8sClient.CreateReturnError = fmt.Errorf("failed to create authorization policy")
+					})
+
+					It("should return an error", func() {
+						_, err := networkManager.getOrCreateAuthorizationPolicy(ctx, logger, task, gateway)
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).To(ContainSubstring("failed to create authorization policy"))
+					})
+				})
+
+				When("creating the authorization policy succeeds", func() {
+					BeforeEach(func() {
+						fakeK8sClient.CreateReturnError = nil
+					})
+
+					It("should create a new one", func() {
+						ap, err := networkManager.getOrCreateAuthorizationPolicy(ctx, logger, task, gateway)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(ap).To(Equal(expectedAp))
+					})
+				})
+			})
+		})
+
 		Context("when creating the virtual service for a task", func() {
 			var (
 				tcpPort = uint32(30500)
-				gateway = createExpectedIstioGateway(task, tcpPort, tlsConfig)
+				gateway = createExpectedIstioIngressGateway(task, tcpPort, tlsConfig)
 			)
 			When("virtual service with name already exists", func() {
 				var (
@@ -196,8 +243,8 @@ var _ = Describe("When managing network resources", func() {
 		When("creating destination rules for a task", func() {
 			var (
 				playerID   = uint(1)
-				playerHost = "172.18.1.128"
-				expectedDr = createExpectedDestinationRule(task, playerID, playerHost, tlsConfig)
+				playerIp   = "172.18.1.128"
+				expectedDr = createExpectedDestinationRule(task, playerID, playerIp, tlsConfig)
 			)
 			When("destination rule with name already exists", func() {
 				BeforeEach(func() {
@@ -206,7 +253,7 @@ var _ = Describe("When managing network resources", func() {
 				})
 
 				It("should return the existing one", func() {
-					dr, err := networkManager.getOrCreateDestinationRule(ctx, logger, task, playerID, playerHost)
+					dr, err := networkManager.getOrCreateDestinationRule(ctx, logger, task, playerID, playerIp)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(dr).To(Equal(expectedDr))
 				})
@@ -219,7 +266,7 @@ var _ = Describe("When managing network resources", func() {
 					})
 
 					It("should return an error", func() {
-						_, err := networkManager.getOrCreateDestinationRule(ctx, logger, task, playerID, playerHost)
+						_, err := networkManager.getOrCreateDestinationRule(ctx, logger, task, playerID, playerIp)
 						Expect(err).To(HaveOccurred())
 						Expect(err.Error()).To(ContainSubstring("failed to create destination rule"))
 					})
@@ -231,7 +278,7 @@ var _ = Describe("When managing network resources", func() {
 					})
 
 					It("should create a new one", func() {
-						dr, err := networkManager.getOrCreateDestinationRule(ctx, logger, task, playerID, playerHost)
+						dr, err := networkManager.getOrCreateDestinationRule(ctx, logger, task, playerID, playerIp)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(dr).To(Equal(expectedDr))
 					})
@@ -242,9 +289,10 @@ var _ = Describe("When managing network resources", func() {
 		When("creating service entries for a task", func() {
 			var (
 				playerID   = uint(1)
-				playerHost = "172.18.1.128"
+				playerIp   = "172.18.1.128"
+				playerHost = "172.18.1.128.sslip.io"
 				playerPort = uint32(5000)
-				expectedSe = createExpectedServiceEntry(task, playerID, playerHost, playerPort)
+				expectedSe = createExpectedServiceEntry(task, playerID, playerHost, playerIp, playerPort)
 			)
 
 			When("service entry with name already exists", func() {
@@ -254,7 +302,7 @@ var _ = Describe("When managing network resources", func() {
 				})
 
 				It("should return the existing one", func() {
-					se, err := networkManager.createServiceEntry(ctx, logger, task, playerID, playerHost, playerPort)
+					se, err := networkManager.getOrCreateServiceEntry(ctx, logger, task, playerID, playerHost, playerIp, playerPort)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(se).To(Equal(expectedSe))
 				})
@@ -266,7 +314,7 @@ var _ = Describe("When managing network resources", func() {
 					})
 
 					It("should return an error", func() {
-						_, err := networkManager.createServiceEntry(ctx, logger, task, playerID, playerHost, playerPort)
+						_, err := networkManager.getOrCreateServiceEntry(ctx, logger, task, playerID, playerHost, playerIp, playerPort)
 						Expect(err).To(HaveOccurred())
 						Expect(err.Error()).To(ContainSubstring("failed to create service entry"))
 					})
@@ -277,7 +325,7 @@ var _ = Describe("When managing network resources", func() {
 					})
 
 					It("should create a new one", func() {
-						se, err := networkManager.createServiceEntry(ctx, logger, task, playerID, playerHost, playerPort)
+						se, err := networkManager.getOrCreateServiceEntry(ctx, logger, task, playerID, playerHost, playerIp, playerPort)
 						Expect(err).NotTo(HaveOccurred())
 						Expect(se).To(Equal(expectedSe))
 					})
@@ -286,13 +334,13 @@ var _ = Describe("When managing network resources", func() {
 		})
 
 		When("creating egress virtual service for a task", func() {
-
 			var (
 				playerID   = uint(1)
-				playerHost = "172.18.1.128"
+				playerHost = "172.18.1.128.sslip.io"
 				playerPort = uint32(5000)
 				egressPort = uint32(30500)
-				expectedVs = createExpectedEgressVirtualService(task, playerID, playerHost, playerPort, egressPort, egressGatewayName, egressServiceHost)
+				gateway    = createExpectedIstioEgressGateway(task, playerHost, egressPort)
+				expectedVs = createExpectedEgressVirtualService(task, gateway, playerID, playerHost, playerPort, egressPort, egressServiceHost)
 			)
 
 			When("virtual service with name already exists", func() {
@@ -302,56 +350,80 @@ var _ = Describe("When managing network resources", func() {
 				})
 
 				It("should return the existing one", func() {
-					vs, err := networkManager.getOrCreateEgressVirtualService(ctx, logger, task, playerID, playerHost, playerPort)
+					vs, err := networkManager.getOrCreateEgressVirtualService(ctx, logger, task, gateway, playerID, playerHost, playerPort)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(vs).To(Equal(expectedVs))
 				})
 			})
 
 			When("virtual service with name does not exist", func() {
+				When("creating the egress virtual service fails", func() {
+					BeforeEach(func() {
+						fakeK8sClient.CreateReturnError = fmt.Errorf("failed to create egress virtual service")
+					})
 
-				When("getting a free port fails", func() {
 					It("should return an error", func() {
-						_, err := networkManager.getOrCreateEgressVirtualService(ctx, logger, task, playerID, playerHost, playerPort)
+						_, err := networkManager.getOrCreateEgressVirtualService(ctx, logger, task, gateway, playerID, playerHost, playerPort)
 						Expect(err).To(HaveOccurred())
-						Expect(err.Error()).To(ContainSubstring("failed to get a free egress port"))
+						Expect(err.Error()).To(ContainSubstring("failed to create egress virtual service"))
 					})
 				})
 
-				When("getting a free port succeeds", func() {
-					var (
-						availableEgressPort = uint32(30500)
-					)
+				When("creating the egress virtual service succeeds", func() {
 					BeforeEach(func() {
-						fakeEgressPortManager.ReturnOnGetFreePort(
-							FreePortResponse{
-								availableEgressPort,
-								nil,
-							})
+						fakeK8sClient.CreateReturnError = nil
 					})
 
-					When("creating the egress virtual service fails", func() {
-						BeforeEach(func() {
-							fakeK8sClient.CreateReturnError = fmt.Errorf("failed to create egress virtual service")
-						})
+					It("should create a new one", func() {
+						vs, err := networkManager.getOrCreateEgressVirtualService(ctx, logger, task, gateway, playerID, playerHost, playerPort)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(vs).To(Equal(expectedVs))
+					})
+				})
+			})
+		})
 
-						It("should return an error", func() {
-							_, err := networkManager.getOrCreateEgressVirtualService(ctx, logger, task, playerID, playerHost, playerPort)
-							Expect(err).To(HaveOccurred())
-							Expect(err.Error()).To(ContainSubstring("failed to create egress virtual service"))
-						})
+		When("creating the egress gateway for a task", func() {
+			var (
+				playerPort = uint32(31500)
+				playerHost = "172.18.1.128.sslip.io"
+				expectedGw = createExpectedIstioEgressGateway(task, playerHost, playerPort)
+			)
+			When("gateway with name already exists", func() {
+				BeforeEach(func() {
+					fakeK8sClient.GetReturnObject = InterfaceToUnstructured(expectedGw)
+					fakeK8sClient.GetReturnError = nil
+				})
+
+				It("should return the existing one", func() {
+					gw, err := networkManager.getOrCreateEgressGateway(ctx, logger, task, playerHost, playerPort)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(gw).To(Equal(expectedGw))
+				})
+			})
+
+			When("gateway with name does not exist", func() {
+				When("creating the gateway fails", func() {
+					BeforeEach(func() {
+						fakeK8sClient.CreateReturnError = fmt.Errorf("failed to create gateway")
 					})
 
-					When("creating the egress virtual service succeeds", func() {
-						BeforeEach(func() {
-							fakeK8sClient.CreateReturnError = nil
-						})
+					It("should return an error", func() {
+						_, err := networkManager.getOrCreateEgressGateway(ctx, logger, task, playerHost, playerPort)
+						Expect(err).To(HaveOccurred())
+						Expect(err.Error()).To(ContainSubstring("failed to create gateway"))
+					})
+				})
 
-						It("should create a new one", func() {
-							vs, err := networkManager.getOrCreateEgressVirtualService(ctx, logger, task, playerID, playerHost, playerPort)
-							Expect(err).NotTo(HaveOccurred())
-							Expect(vs).To(Equal(expectedVs))
-						})
+				When("creating the gateway succeeds", func() {
+					BeforeEach(func() {
+						fakeK8sClient.CreateReturnError = nil
+					})
+
+					It("should create a new one", func() {
+						gw, err := networkManager.getOrCreateEgressGateway(ctx, logger, task, playerHost, playerPort)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(gw).To(Equal(expectedGw))
 					})
 				})
 			})
@@ -367,7 +439,6 @@ var _ = Describe("When managing network resources", func() {
 				k8sClient:          fakeK8sClient,
 				ingressPortManager: fakeIngressPortManager,
 				egressServiceHost:  egressServiceHost,
-				egressGatewayName:  egressGatewayName,
 				egressPortManager:  fakeEgressPortManager,
 				tlsConfig:          tlsConfig,
 			}
@@ -391,18 +462,25 @@ var _ = Describe("When managing network resources", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(port).To(Equal(ingressPort))
 					createdResources := fakeK8sClient.CreateCallParams
-					Expect(createdResources).To(HaveLen(2))
+					Expect(createdResources).To(HaveLen(3))
 					for _, resource := range createdResources {
 						kind := resource.obj.GetObjectKind().GroupVersionKind().Kind
 						switch kind {
 						case "Gateway":
 							Expect(resource.obj).To(
 								Equal(InterfaceToUnstructured(
-									createExpectedIstioGateway(task, ingressPort, tlsConfig))))
+									createExpectedIstioIngressGateway(task, ingressPort, tlsConfig))))
 						case "VirtualService":
 							Expect(resource.obj).To(
 								Equal(InterfaceToUnstructured(
-									createExpectedIngressVirtualService(task, createExpectedIstioGateway(task, ingressPort, tlsConfig), ingressPort))))
+									createExpectedIngressVirtualService(task, createExpectedIstioIngressGateway(task, ingressPort, tlsConfig), ingressPort))))
+						case "AuthorizationPolicy":
+							expectedUap := InterfaceToUnstructured(createExpectedAuthorizationPolicy(task, ingressPort))
+							// we need to set the action to ALLOW manually as
+							// there is a marshalling error where the action is
+							// not set correctly
+							expectedUap.Object["spec"].(map[string]interface{})["action"] = "ALLOW"
+							Expect(resource.obj).To(Equal(expectedUap))
 						}
 					}
 				})
@@ -410,13 +488,23 @@ var _ = Describe("When managing network resources", func() {
 		})
 
 		When("creating the egress networking for a task", func() {
-			When("creating resources succeeds", func() {
+			var (
+				endpoints = map[uint]string{
+					1: "172.20.1.0:30500",
+					2: "182.20.1.1:30550",
+					3: "192.20.1.2:5000",
+				}
+			)
+			When("getting a free port fails", func() {
+				It("should return an error", func() {
+					err := networkManager.CreateEgressNetworkingForTask(ctx, task, endpoints)
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("failed to get a free egress port"))
+				})
+			})
+
+			When("getting a free port succeeds", func() {
 				var (
-					endpoints = map[uint]string{
-						1: "172.20.1.0:30500",
-						2: "182.20.1.1:30550",
-						3: "192.20.1.2:5000",
-					}
 					egressPorts = []uint32{
 						10000,
 						20000,
@@ -438,38 +526,49 @@ var _ = Describe("When managing network resources", func() {
 						})
 					fakeK8sClient.CreateReturnError = nil
 				})
-
-				It("should create all resources and return the ingress port", func() {
-					err := networkManager.CreateEgressNetworkingForTask(ctx, task, endpoints)
-					Expect(err).NotTo(HaveOccurred())
-					createdResources := fakeK8sClient.CreateCallParams
-					Expect(createdResources).To(HaveLen(len(endpoints) * 3))
-					// as the order when iterating maps is not guaranteed, we have to do
-					// some extra work
-					endpointsToServe := make(map[uint]string)
-					for playerId, endpoint := range endpoints {
-						endpointsToServe[playerId] = endpoint
-					}
-					for i := 0; i < len(endpoints); i++ {
-						generatedDR := createdResources[i*3].obj
-						pIdString := generatedDR.GetName()[strings.LastIndex(generatedDR.GetName(), "-")+1:]
-						pId, _ := strconv.ParseUint(pIdString, 10, 32)
-						endpoint, ok := endpointsToServe[uint(pId)]
-						Expect(ok).To(BeTrue())
-						delete(endpointsToServe, uint(pId))
-						hostPort := strings.Split(endpoint, ":")
-						playerPort, _ := strconv.ParseUint(hostPort[1], 10, 32)
-						Expect(generatedDR).To(
-							Equal(InterfaceToUnstructured(
-								createExpectedDestinationRule(task, uint(pId), hostPort[0], tlsConfig))))
-						Expect(createdResources[i*3+1].obj).To(
-							Equal(InterfaceToUnstructured(
-								createExpectedServiceEntry(task, uint(pId), hostPort[0], uint32(playerPort)))))
-						Expect(createdResources[i*3+2].obj).To(
-							Equal(InterfaceToUnstructured(
-								createExpectedEgressVirtualService(task, uint(pId), hostPort[0], uint32(playerPort), egressPorts[i], egressGatewayName, egressServiceHost))))
-					}
-					Expect(len(endpointsToServe)).To(BeZero())
+				When("creating resources succeeds", func() {
+					It("should create all egress resources", func() {
+						err := networkManager.CreateEgressNetworkingForTask(ctx, task, endpoints)
+						Expect(err).NotTo(HaveOccurred())
+						createdResources := fakeK8sClient.CreateCallParams
+						Expect(createdResources).To(HaveLen(len(endpoints) * 4))
+						// as the order when iterating maps is not guaranteed, we have to do
+						// some extra work
+						endpointsToServe := make(map[uint]string)
+						for playerId, endpoint := range endpoints {
+							endpointsToServe[playerId] = endpoint
+						}
+						for i := 0; i < len(endpoints); i++ {
+							createdDR := createdResources[i*4+1].obj
+							pIdString := createdDR.GetName()[strings.LastIndex(createdDR.GetName(), "-")+1:]
+							pId, _ := strconv.ParseUint(pIdString, 10, 32)
+							endpoint, ok := endpointsToServe[uint(pId)]
+							Expect(ok).To(BeTrue())
+							delete(endpointsToServe, uint(pId))
+							ipPort := strings.Split(endpoint, ":")
+							playerIp := ipPort[0]
+							playerHost := fmt.Sprintf("%s.sslip.io", playerIp)
+							playerPort, _ := strconv.ParseUint(ipPort[1], 10, 32)
+							expectedGateway := createExpectedIstioEgressGateway(task, playerHost, egressPorts[i])
+							Expect(createdResources[i*4].obj).To(
+								Equal(InterfaceToUnstructured(expectedGateway)))
+							Expect(createdDR).To(
+								Equal(InterfaceToUnstructured(
+									createExpectedDestinationRule(task, uint(pId), playerHost, tlsConfig))))
+							expectedSe := createExpectedServiceEntry(task, uint(pId), playerHost, playerIp, uint32(playerPort))
+							uese := InterfaceToUnstructured(expectedSe)
+							// we need to set the location to MESH_EXTERNAL manually
+							// because of a marshalling error where the location is
+							// not set correctly
+							uese.Object["spec"].(map[string]interface{})["location"] = "MESH_EXTERNAL"
+							Expect(createdResources[i*4+2].obj).To(
+								Equal(uese))
+							Expect(createdResources[i*4+3].obj).To(
+								Equal(InterfaceToUnstructured(
+									createExpectedEgressVirtualService(task, expectedGateway, uint(pId), playerHost, uint32(playerPort), egressPorts[i], egressServiceHost))))
+						}
+						Expect(len(endpointsToServe)).To(BeZero())
+					})
 				})
 			})
 		})
@@ -486,11 +585,35 @@ var _ = Describe("When managing network resources", func() {
 						fmt.Errorf("failed to delete VirtualServices: %w", deleteErr),
 						fmt.Errorf("failed to delete ServiceEntries: %w", deleteErr),
 						fmt.Errorf("failed to delete DestinationRules: %w", deleteErr),
+						fmt.Errorf("failed to delete AuthorizationPolicies: %w", deleteErr),
 					}
 					Expect(err).To(Equal(fmt.Errorf("failed to delete networking resources: %v", expectedResourceDeleteErrs)))
 				})
 			})
 			When("deleting resources succeeds", func() {
+				var (
+					resourcesExpectedToBeDeleted = []schema.GroupVersionKind{{
+						Group:   istioNetworkingGroup,
+						Version: istioVersion,
+						Kind:    "Gateway",
+					}, {
+						Group:   istioNetworkingGroup,
+						Version: istioVersion,
+						Kind:    "VirtualService",
+					}, {
+						Group:   istioNetworkingGroup,
+						Version: istioVersion,
+						Kind:    "ServiceEntry",
+					}, {
+						Group:   istioNetworkingGroup,
+						Version: istioVersion,
+						Kind:    "DestinationRule",
+					}, {
+						Group:   istioSecurityGroup,
+						Version: istioVersion,
+						Kind:    "AuthorizationPolicy",
+					}}
+				)
 				BeforeEach(func() {
 					fakeK8sClient.DeleteAllReturnError = nil
 				})
@@ -499,41 +622,41 @@ var _ = Describe("When managing network resources", func() {
 					err := networkManager.DeleteNetworkingForTask(ctx, task)
 					Expect(err).NotTo(HaveOccurred())
 					deletedResources := fakeK8sClient.DeleteAllCallParams
-					Expect(deletedResources).To(HaveLen(4))
-					deletedKinds := make([]string, 0)
+					Expect(deletedResources).To(HaveLen(len(resourcesExpectedToBeDeleted)))
+					deletedKinds := make([]schema.GroupVersionKind, 0)
 					for _, resource := range deletedResources {
 						groupVersionKind := resource.obj.GetObjectKind().GroupVersionKind()
-						Expect(groupVersionKind.Group).To(Equal(istioGroup))
-						Expect(groupVersionKind.Version).To(Equal(istioVersion))
-						deletedKinds = append(deletedKinds, groupVersionKind.Kind)
+						deletedKinds = append(deletedKinds, groupVersionKind)
 					}
-					Expect(deletedKinds).To(ConsistOf("Gateway", "VirtualService", "ServiceEntry", "DestinationRule"))
+					Expect(deletedKinds).To(ConsistOf(resourcesExpectedToBeDeleted))
 				})
 			})
 		})
 	})
 })
 
-func createExpectedEgressVirtualService(task *klyshkov1alpha1.TupleGenerationTask, playerID uint, playerHost string, playerPort uint32, egressPort uint32, egressGatewayName string, egressServiceHost string) *IstioVirtualService {
+func createExpectedEgressVirtualService(task *klyshkov1alpha1.TupleGenerationTask, gateway *IstioGateway, playerID uint, playerHost string, playerPort uint32, egressPort uint32, egressServiceHost string) *IstioVirtualService {
+	refLabels := map[string]string{
+		TaskLabel: task.Name,
+	}
 	ivs := NewIstioVirtualService(
 		metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-egress-vs-%d", task.Name, playerID),
 			Namespace: task.Namespace,
-			Labels: map[string]string{
-				TaskNetworkLabel: task.Name,
-			},
+			Labels:    refLabels,
 		},
 		&v1beta1.VirtualService{
 			Hosts: []string{playerHost},
 			Gateways: []string{
 				"mesh",
-				egressGatewayName,
+				gateway.Name,
 			},
 			Tcp: []*v1beta1.TCPRoute{
 				{
 					Match: []*v1beta1.L4MatchAttributes{
 						{
-							Port: egressPort,
+							Port:         InterCRGNetworkingPort,
+							SourceLabels: refLabels,
 							Gateways: []string{
 								"mesh",
 							},
@@ -555,7 +678,7 @@ func createExpectedEgressVirtualService(task *klyshkov1alpha1.TupleGenerationTas
 						{
 							Port: egressPort,
 							Gateways: []string{
-								egressGatewayName,
+								gateway.Name,
 							},
 						},
 					},
@@ -576,7 +699,7 @@ func createExpectedEgressVirtualService(task *klyshkov1alpha1.TupleGenerationTas
 	return &ivs
 }
 
-func createExpectedServiceEntry(task *klyshkov1alpha1.TupleGenerationTask, playerID uint, playerHost string, playerPort uint32) *IstioServiceEntry {
+func createExpectedServiceEntry(task *klyshkov1alpha1.TupleGenerationTask, playerID uint, playerHost string, playerIp string, playerPort uint32) *IstioServiceEntry {
 	ise := NewIstioServiceEntry(
 		metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-se-%d", task.Name, playerID),
@@ -586,8 +709,14 @@ func createExpectedServiceEntry(task *klyshkov1alpha1.TupleGenerationTask, playe
 			},
 		},
 		&v1beta1.ServiceEntry{
-			Addresses: []string{fmt.Sprintf("%s/32", playerHost)},
+			Hosts:     []string{playerHost},
+			Addresses: []string{fmt.Sprintf("%s/32", playerIp)},
 			Ports: []*v1beta1.Port{
+				{
+					Number:     InterCRGNetworkingPort,
+					Protocol:   "TCP",
+					TargetPort: 0,
+				},
 				{
 					Number:     playerPort,
 					Protocol:   "TCP",
@@ -651,10 +780,7 @@ func createExpectedIngressVirtualService(task *klyshkov1alpha1.TupleGenerationTa
 					Route: []*v1beta1.RouteDestination{
 						{
 							Destination: &v1beta1.Destination{
-								Host: types.NamespacedName{
-									Namespace: task.Namespace,
-									Name:      task.Name}.
-									String(),
+								Host: task.Name,
 								Port: &v1beta1.PortSelector{
 									Number: InterCRGNetworkingPort,
 								},
@@ -667,10 +793,10 @@ func createExpectedIngressVirtualService(task *klyshkov1alpha1.TupleGenerationTa
 	return &ivs
 }
 
-func createExpectedIstioGateway(task *klyshkov1alpha1.TupleGenerationTask, port uint32, tlsConfig *TLSConfig) *IstioGateway {
+func createExpectedIstioIngressGateway(task *klyshkov1alpha1.TupleGenerationTask, port uint32, tlsConfig *TLSConfig) *IstioGateway {
 	igw := NewIstioGateway(
 		metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-gateway", task.Name),
+			Name:      fmt.Sprintf("%s-ingress-gateway", task.Name),
 			Namespace: task.Namespace,
 			Labels: map[string]string{
 				TaskNetworkLabel: task.Name,
@@ -682,7 +808,7 @@ func createExpectedIstioGateway(task *klyshkov1alpha1.TupleGenerationTask, port 
 					Port: &v1beta1.Port{
 						Number:   port,
 						Protocol: "TCP",
-						Name:     fmt.Sprintf("crg-tcp-%d", port),
+						Name:     fmt.Sprintf("crg-ingress-tcp-%d", port),
 					},
 					Hosts: []string{"*"},
 				},
@@ -698,4 +824,64 @@ func createExpectedIstioGateway(task *klyshkov1alpha1.TupleGenerationTask, port 
 		}
 	}
 	return &igw
+}
+
+func createExpectedIstioEgressGateway(task *klyshkov1alpha1.TupleGenerationTask, host string, port uint32) *IstioGateway {
+	igw := NewIstioGateway(
+		metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-egress-gateway", task.Name),
+			Namespace: task.Namespace,
+			Labels: map[string]string{
+				TaskNetworkLabel: task.Name,
+			},
+		},
+		&v1beta1.Gateway{
+			Servers: []*v1beta1.Server{
+				{
+					Port: &v1beta1.Port{
+						Number:   port,
+						Protocol: "TCP",
+						Name:     fmt.Sprintf("crg-egress-tcp-%d", port),
+					},
+					Hosts: []string{host},
+				},
+			},
+			Selector: map[string]string{
+				"istio": "egressgateway",
+			},
+		})
+	return &igw
+}
+
+func createExpectedAuthorizationPolicy(task *klyshkov1alpha1.TupleGenerationTask, port uint32) *IstioAuthorizationPolicy {
+	authorizationPolicy := NewIstioAuthorizationPolicy(
+		metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-auth-policy", task.Name),
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				TaskNetworkLabel: task.Name,
+			},
+		},
+		&isec.AuthorizationPolicy{
+			Action: isec.AuthorizationPolicy_ALLOW,
+			Rules: []*isec.Rule{
+				{
+					To: []*isec.Rule_To{
+						{
+							Operation: &isec.Operation{
+								Ports: []string{
+									fmt.Sprintf("%d", port),
+								},
+							},
+						},
+					},
+				},
+			},
+			Selector: &itype.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"istio": "ingressgateway",
+				},
+			},
+		})
+	return &authorizationPolicy
 }

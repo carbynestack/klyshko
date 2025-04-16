@@ -97,7 +97,6 @@ helm install --name my-release -f values.yaml klyshko
 | `controller.egress.portRange.min`  | The minimum port number for the egress port range                      | `30500`                                              |
 | `controller.egress.portRange.max`  | The maximum port number for the egress port range                      | `30550`                                              |
 | `controller.egress.serviceHost`    | The hostname of the Istio egress gateway service                       | `istio-egressgateway.istio-system.svc.cluster.local` |
-| `controller.egress.gatewayName`    | The name of the Istio Gateway used for egress traffic                  | `partner-egressgateway`                              |
 | `controller.tls.enabled`           | Enable TLS for inter-VCP communication                                 | `false`                                              |
 | `controller.tls.secretName`        | The k8s secret containing the TLS client and CA certificates           |                                                      |
 

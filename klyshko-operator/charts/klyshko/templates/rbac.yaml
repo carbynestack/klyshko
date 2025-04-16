@@ -219,6 +219,17 @@ rules:
       - get
       - create
       - delete
+      - deletecollection
+      - list
+  - apiGroups:
+      - security.istio.io
+    resources:
+      - authorizationpolicies
+    verbs:
+      - get
+      - create
+      - delete
+      - deletecollection
       - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1

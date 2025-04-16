@@ -10,19 +10,23 @@ package controllers
 import (
 	"encoding/json"
 	"istio.io/api/networking/v1beta1"
+	isec "istio.io/api/security/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-const istioGroup = "networking.istio.io"
+const istioNetworkingGroup = "networking.istio.io"
+const istioSecurityGroup = "security.istio.io"
 const istioVersion = "v1beta1"
-const istioApiVersion = istioGroup + "/" + istioVersion
+const istioNetworkingApiVersion = istioNetworkingGroup + "/" + istioVersion
+const istioSecurityApiVersion = istioSecurityGroup + "/" + istioVersion
 
 // This file contains the definition of the istio k8s resources managed by the
-// Klyshko operator. This includes the Gateway, VirtualService, DestinationRule
-// and ServiceEntry resources. However, the resources only contain the fields
-// that are relevant to the operator.
+// Klyshko operator. This includes the Gateway, AuthorizationPolicy,
+// VirtualService, DestinationRule and ServiceEntry resources. However, the
+// resources only contain the fields that are relevant to the operator.
+//
 // This is a hacky workaround to avoid using the Istio client-go library, which
 // causes compatible issues with dependencies of other libraries. When
 // interacting with the Istio resources, the operator will use the unstructured
@@ -33,7 +37,7 @@ func NewIstioGateway(meta metav1.ObjectMeta, spec *v1beta1.Gateway) IstioGateway
 	return IstioGateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Gateway",
-			APIVersion: istioApiVersion,
+			APIVersion: istioNetworkingApiVersion,
 		},
 		ObjectMeta: meta,
 		Spec:       spec,
@@ -43,7 +47,7 @@ func NewIstioGateway(meta metav1.ObjectMeta, spec *v1beta1.Gateway) IstioGateway
 func NewUnstructuredIstioGateway() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": istioApiVersion,
+			"apiVersion": istioNetworkingApiVersion,
 			"kind":       "Gateway",
 		},
 	}
@@ -60,11 +64,42 @@ type IstioGateway struct {
 	Spec              *v1beta1.Gateway `json:"spec,omitempty"`
 }
 
+func NewIstioAuthorizationPolicy(meta metav1.ObjectMeta, spec *isec.AuthorizationPolicy) IstioAuthorizationPolicy {
+	return IstioAuthorizationPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "AuthorizationPolicy",
+			APIVersion: istioSecurityApiVersion,
+		},
+		ObjectMeta: meta,
+		Spec:       spec,
+	}
+}
+
+func NewUnstructuredIstioAuthorizationPolicy() *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": istioSecurityApiVersion,
+			"kind":       "AuthorizationPolicy",
+		},
+	}
+}
+
+func IstioAuthorizationPolicyFromUnstructured(uap *unstructured.Unstructured) (*IstioAuthorizationPolicy, error) {
+	iap := &IstioAuthorizationPolicy{}
+	return iap, runtime.DefaultUnstructuredConverter.FromUnstructured(uap.Object, iap)
+}
+
+type IstioAuthorizationPolicy struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              *isec.AuthorizationPolicy `json:"spec,omitempty"`
+}
+
 func NewIstioVirtualService(meta metav1.ObjectMeta, spec *v1beta1.VirtualService) IstioVirtualService {
 	return IstioVirtualService{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualService",
-			APIVersion: istioApiVersion,
+			APIVersion: istioNetworkingApiVersion,
 		},
 		ObjectMeta: meta,
 		Spec:       spec,
@@ -74,7 +109,7 @@ func NewIstioVirtualService(meta metav1.ObjectMeta, spec *v1beta1.VirtualService
 func NewUnstructuredIstioVirtualService() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": istioApiVersion,
+			"apiVersion": istioNetworkingApiVersion,
 			"kind":       "VirtualService",
 		},
 	}
@@ -94,7 +129,7 @@ type IstioVirtualService struct {
 func NewUnstructuredIstioDestinationRule() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": istioApiVersion,
+			"apiVersion": istioNetworkingApiVersion,
 			"kind":       "DestinationRule",
 		},
 	}
@@ -109,7 +144,7 @@ func NewIstioDestinationRule(meta metav1.ObjectMeta, destinationRule *v1beta1.De
 	return IstioDestinationRule{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "DestinationRule",
-			APIVersion: istioApiVersion,
+			APIVersion: istioNetworkingApiVersion,
 		},
 		ObjectMeta: meta,
 		Spec:       destinationRule,
@@ -125,7 +160,7 @@ type IstioDestinationRule struct {
 func NewUnstructuredIstioServiceEntry() *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": istioApiVersion,
+			"apiVersion": istioNetworkingApiVersion,
 			"kind":       "ServiceEntry",
 		},
 	}
@@ -140,7 +175,7 @@ func NewIstioServiceEntry(meta metav1.ObjectMeta, spec *v1beta1.ServiceEntry) Is
 	return IstioServiceEntry{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceEntry",
-			APIVersion: istioApiVersion,
+			APIVersion: istioNetworkingApiVersion,
 		},
 		ObjectMeta: meta,
 		Spec:       spec,

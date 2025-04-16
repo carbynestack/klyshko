@@ -14,6 +14,8 @@ import (
 	"github.com/carbynestack/klyshko/logging"
 	"github.com/go-logr/logr"
 	"istio.io/api/networking/v1beta1"
+	isec "istio.io/api/security/v1beta1"
+	itype "istio.io/api/type/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,8 +48,8 @@ type NetworkManager interface {
 	DeleteNetworkingForTask(ctx context.Context, task *klyshkov1alpha1.TupleGenerationTask) error
 }
 
-func NewNetworkManager(ingressPortRange *PortRange, egressServiceHost string,
-	egressGatewayName string, egressPortRange *PortRange,
+func NewNetworkManager(ingressPortRange *PortRange,
+	egressServiceHost string, egressPortRange *PortRange,
 	tlsConfig *TLSConfig, k8sClient client.Client) (NetworkManager, error) {
 
 	return &DefaultNetworkManager{
@@ -56,11 +58,9 @@ func NewNetworkManager(ingressPortRange *PortRange, egressServiceHost string,
 			k8sClient,
 			ingressPortRange),
 		egressServiceHost: egressServiceHost,
-		egressGatewayName: egressGatewayName,
 		egressPortManager: NewEgressPortManager(
 			k8sClient,
 			egressServiceHost,
-			egressGatewayName,
 			egressPortRange),
 		tlsConfig: tlsConfig,
 		mtx:       sync.Mutex{},
@@ -76,8 +76,6 @@ type DefaultNetworkManager struct {
 	ingressPortManager PortManager
 	// egressServiceHost is the host of the service that is used for egress traffic.
 	egressServiceHost string
-	// egressGatewayName is the name of the Istio Gateway that is used egress traffic.
-	egressGatewayName string
 	// egressPortManager is the manager used to find available ports to configure
 	// egress routes.
 	egressPortManager PortManager
@@ -97,16 +95,23 @@ func (n *DefaultNetworkManager) CreateIngressNetworkingForTask(ctx context.Conte
 	logger := log.FromContext(ctx).
 		WithName("Networking").
 		WithName("Ingress").
-		WithValues("Service", task.Name).
+		WithValues("Task", task.Name).
 		V(logging.DEBUG)
 
 	// Create the Gateway
-	gateway, err := n.getOrCreateGateway(ctx, logger, task)
+	gateway, err := n.getOrCreateIngressGateway(ctx, logger, task)
 	if err != nil {
 		logger.Info("Failed to create Gateway", "Error", err)
 		return 0, fmt.Errorf("failed to create Gateway: %w", err)
 	}
 	logger.Info("Gateway created", "Gateway", gateway)
+	// Create AuthorizationPolicy
+	authPolicy, err := n.getOrCreateAuthorizationPolicy(ctx, logger, task, gateway)
+	if err != nil {
+		logger.Info("Failed to create AuthorizationPolicy", "Error", err)
+		return 0, fmt.Errorf("failed to create AuthorizationPolicy: %w", err)
+	}
+	logger.Info("AuthorizationPolicy created", "AuthorizationPolicy", authPolicy)
 	// Create VirtualService
 	virtualService, err := n.getOrCreateVirtualService(ctx, logger, task, gateway)
 	if err != nil {
@@ -189,6 +194,15 @@ func (n *DefaultNetworkManager) DeleteNetworkingForTask(ctx context.Context, tas
 		logger.Info("Failed to delete DestinationRules", "Error", err)
 		errs = append(errs, fmt.Errorf("failed to delete DestinationRules: %w", err))
 	}
+	err = n.k8sClient.DeleteAllOf(
+		ctx,
+		NewUnstructuredIstioAuthorizationPolicy(),
+		client.InNamespace(task.Namespace),
+		client.MatchingLabels{TaskNetworkLabel: task.Name})
+	if err != nil {
+		logger.Info("Failed to delete AuthorizationPolicies", "Error", err)
+		errs = append(errs, fmt.Errorf("failed to delete AuthorizationPolicies: %w", err))
+	}
 	if len(errs) > 0 {
 		return fmt.Errorf("failed to delete networking resources: %v", errs)
 	}
@@ -196,12 +210,12 @@ func (n *DefaultNetworkManager) DeleteNetworkingForTask(ctx context.Context, tas
 	return nil
 }
 
-func (n *DefaultNetworkManager) newServer(port uint32) *v1beta1.Server {
+func (n *DefaultNetworkManager) newIngressServer(port uint32) *v1beta1.Server {
 	srv := v1beta1.Server{
 		Port: &v1beta1.Port{
 			Number:   port,
 			Protocol: "TCP",
-			Name:     fmt.Sprintf("crg-tcp-%d", port),
+			Name:     fmt.Sprintf("crg-ingress-tcp-%d", port),
 		},
 		Hosts: []string{"*"},
 	}
@@ -214,13 +228,24 @@ func (n *DefaultNetworkManager) newServer(port uint32) *v1beta1.Server {
 	return &srv
 }
 
-func (n *DefaultNetworkManager) getOrCreateGateway(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask) (*IstioGateway, error) {
+func (n *DefaultNetworkManager) newEgressServer(host string, port uint32) *v1beta1.Server {
+	srv := v1beta1.Server{
+		Port: &v1beta1.Port{
+			Number:   port,
+			Protocol: "TCP",
+			Name:     fmt.Sprintf("crg-egress-tcp-%d", port),
+		},
+		Hosts: []string{host},
+	}
+	return &srv
+}
+
+func (n *DefaultNetworkManager) getOrCreateIngressGateway(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask) (*IstioGateway, error) {
 	gatewayName := types.NamespacedName{
 		Namespace: task.Namespace,
-		Name:      fmt.Sprintf("%s-gateway", task.Name),
+		Name:      fmt.Sprintf("%s-ingress-gateway", task.Name),
 	}
-	logger = logger.WithName("Gateway").
-		WithValues("Service", task.Name)
+	logger = logger.WithName("IngressGateway")
 	unstructuredGateway := NewUnstructuredIstioGateway()
 	err := n.k8sClient.Get(ctx, gatewayName, unstructuredGateway)
 	if err == nil {
@@ -247,11 +272,94 @@ func (n *DefaultNetworkManager) getOrCreateGateway(ctx context.Context, logger l
 		},
 		&v1beta1.Gateway{
 			Servers: []*v1beta1.Server{
-				n.newServer(port),
+				n.newIngressServer(port),
 			},
 			Selector: selectors,
 		})
 	return &gateway, n.k8sClient.Create(ctx, InterfaceToUnstructured(gateway))
+}
+
+func (n *DefaultNetworkManager) getOrCreateEgressGateway(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, host string, port uint32) (*IstioGateway, error) {
+	gatewayName := types.NamespacedName{
+		Namespace: task.Namespace,
+		Name:      fmt.Sprintf("%s-egress-gateway", task.Name),
+	}
+	logger = logger.WithName("EgressGateway").
+		WithValues("Name", gatewayName)
+	unstructuredGateway := NewUnstructuredIstioGateway()
+	err := n.k8sClient.Get(ctx, gatewayName, unstructuredGateway)
+	if err == nil {
+		logger.Info("Egress Gateway already exists", "Gateway", unstructuredGateway)
+		return IstioGatewayFromUnstructured(unstructuredGateway)
+	} else {
+		logger.Info("Egress Gateway does not exist", "Gateway", unstructuredGateway, "Error", err)
+	}
+	selectors := map[string]string{}
+	selectors["istio"] = "egressgateway"
+	gateway := NewIstioGateway(
+		metav1.ObjectMeta{
+			Name:      gatewayName.Name,
+			Namespace: task.Namespace,
+			Labels: map[string]string{
+				TaskNetworkLabel: task.Name,
+			},
+		},
+		&v1beta1.Gateway{
+			Servers: []*v1beta1.Server{
+				n.newEgressServer(host, port),
+			},
+			Selector: selectors,
+		})
+	return &gateway, n.k8sClient.Create(ctx, InterfaceToUnstructured(gateway))
+}
+
+func (n *DefaultNetworkManager) getOrCreateAuthorizationPolicy(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, gateway *IstioGateway) (*IstioAuthorizationPolicy, error) {
+	apName := types.NamespacedName{
+		Namespace: task.Namespace,
+		Name:      fmt.Sprintf("%s-auth-policy", task.Name),
+	}
+	logger = logger.WithName("AuthorizationPolicy")
+	unstructuredAuthPolicy := NewUnstructuredIstioAuthorizationPolicy()
+	err := n.k8sClient.Get(ctx, apName, unstructuredAuthPolicy)
+	if err == nil {
+		logger.Info("AuthorizationPolicy already exists", "AuthorizationPolicy", unstructuredAuthPolicy)
+		return IstioAuthorizationPolicyFromUnstructured(unstructuredAuthPolicy)
+	}
+	logger.Info("AuthorizationPolicy does not exist", "AuthorizationPolicy", unstructuredAuthPolicy, "Error", err)
+	authPolicy := NewIstioAuthorizationPolicy(
+		metav1.ObjectMeta{
+			Name:      apName.Name,
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				TaskNetworkLabel: task.Name,
+			},
+		},
+		&isec.AuthorizationPolicy{
+			Selector: &itype.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"istio": "ingressgateway",
+				},
+			},
+			Action: isec.AuthorizationPolicy_ALLOW,
+			Rules: []*isec.Rule{
+				{
+					To: []*isec.Rule_To{
+						{
+							Operation: &isec.Operation{
+								Ports: []string{
+									fmt.Sprintf("%d", gateway.Spec.Servers[0].Port.Number),
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+	// there is a marshalling issue with the AuthorizationPolicy object where the
+	// action ALLOW is not set correctly. This is a workaround to set it explicitly.
+	uap := InterfaceToUnstructured(&authPolicy)
+	uap.Object["spec"].(map[string]interface{})["action"] = "ALLOW"
+	return &authPolicy, n.k8sClient.Create(ctx, uap)
 }
 
 func (n *DefaultNetworkManager) getOrCreateVirtualService(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, gateway *IstioGateway) (*IstioVirtualService, error) {
@@ -259,8 +367,7 @@ func (n *DefaultNetworkManager) getOrCreateVirtualService(ctx context.Context, l
 		Namespace: task.Namespace,
 		Name:      fmt.Sprintf("%s-vs", gateway.Name),
 	}
-	logger = logger.WithName("VirtualService").
-		WithValues("Service", task.Name)
+	logger = logger.WithName("VirtualService")
 	unstructuredVirtualService := NewUnstructuredIstioVirtualService()
 	err := n.k8sClient.Get(ctx, vsName, unstructuredVirtualService)
 	if err == nil {
@@ -290,10 +397,7 @@ func (n *DefaultNetworkManager) getOrCreateVirtualService(ctx context.Context, l
 					Route: []*v1beta1.RouteDestination{
 						{
 							Destination: &v1beta1.Destination{
-								Host: types.NamespacedName{
-									Namespace: task.Namespace,
-									Name:      task.Name}.
-									String(),
+								Host: task.Name, // the service is named after the task
 								Port: &v1beta1.PortSelector{
 									Number: InterCRGNetworkingPort,
 								},
@@ -346,7 +450,7 @@ func (n *DefaultNetworkManager) getOrCreateDestinationRule(ctx context.Context, 
 	return &destinationRule, n.k8sClient.Create(ctx, InterfaceToUnstructured(&destinationRule))
 }
 
-func (n *DefaultNetworkManager) createServiceEntry(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, pId uint, host string, port uint32) (*IstioServiceEntry, error) {
+func (n *DefaultNetworkManager) getOrCreateServiceEntry(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, pId uint, host string, ip string, port uint32) (*IstioServiceEntry, error) {
 	seName := types.NamespacedName{
 		Namespace: task.Namespace,
 		Name:      fmt.Sprintf("%s-se-%d", task.Name, pId),
@@ -368,10 +472,17 @@ func (n *DefaultNetworkManager) createServiceEntry(ctx context.Context, logger l
 			},
 		},
 		&v1beta1.ServiceEntry{
-			Addresses: []string{fmt.Sprintf("%s/32", host)},
+			Hosts:     []string{host},
+			Addresses: []string{fmt.Sprintf("%s/32", ip)},
 			Ports: []*v1beta1.Port{
 				// ToDo: Use ServicePort once later versions of IstioAPI are supported
 				{
+					// the general crg port must be made available as this is where
+					// communication is initially targeted to, but will be redirected
+					Number:     InterCRGNetworkingPort,
+					Protocol:   "TCP",
+					TargetPort: 0,
+				}, {
 					Number:     port,
 					Protocol:   "TCP",
 					Name:       fmt.Sprintf("crg-tcp-%d", port),
@@ -381,10 +492,15 @@ func (n *DefaultNetworkManager) createServiceEntry(ctx context.Context, logger l
 			Location:   v1beta1.ServiceEntry_MESH_EXTERNAL,
 			Resolution: v1beta1.ServiceEntry_DNS,
 		})
-	return &serviceEntry, n.k8sClient.Create(ctx, InterfaceToUnstructured(&serviceEntry))
+	// there is a marshalling issue with the ServiceEntry object where the
+	// location MESH_EXTERNAL is not set correctly. This is a workaround to set
+	// it explicitly.
+	use := InterfaceToUnstructured(&serviceEntry)
+	use.Object["spec"].(map[string]interface{})["location"] = "MESH_EXTERNAL"
+	return &serviceEntry, n.k8sClient.Create(ctx, use)
 }
 
-func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, pId uint, host string, port uint32) (*IstioVirtualService, error) {
+func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, egressGateway *IstioGateway, pId uint, host string, port uint32) (*IstioVirtualService, error) {
 	vsName := types.NamespacedName{
 		Namespace: task.Namespace,
 		Name:      fmt.Sprintf("%s-egress-vs-%d", task.Name, pId),
@@ -397,31 +513,27 @@ func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Cont
 		logger.Info("VirtualService already exists", "VirtualService", unstructuredVirtualService)
 		return IstioVirtualServiceFromUnstructured(unstructuredVirtualService)
 	}
-	egressPort, err := n.egressPortManager.GetFreePort(ctx)
-	if err != nil {
-		logger.Info("Failed to get a free egress port", "Error", err)
-		return nil, fmt.Errorf("failed to get a free egress port: %w", err)
+	refLabels := map[string]string{
+		TaskLabel: task.Name,
 	}
-	logger.Info("Egress port allocated", "Port", egressPort)
 	virtualService := NewIstioVirtualService(
 		metav1.ObjectMeta{
 			Name:      vsName.Name,
 			Namespace: task.Namespace,
-			Labels: map[string]string{
-				TaskNetworkLabel: task.Name,
-			},
+			Labels:    refLabels,
 		},
 		&v1beta1.VirtualService{
 			Hosts: []string{host},
 			Gateways: []string{
 				"mesh",
-				n.egressGatewayName,
+				egressGateway.Name,
 			},
 			Tcp: []*v1beta1.TCPRoute{
 				{
 					Match: []*v1beta1.L4MatchAttributes{
 						{
-							Port: egressPort,
+							SourceLabels: refLabels,
+							Port:         InterCRGNetworkingPort,
 							Gateways: []string{
 								"mesh",
 							},
@@ -432,7 +544,7 @@ func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Cont
 							Destination: &v1beta1.Destination{
 								Host: n.egressServiceHost,
 								Port: &v1beta1.PortSelector{
-									Number: egressPort,
+									Number: egressGateway.Spec.Servers[0].Port.Number,
 								},
 							},
 							Weight: 100,
@@ -441,9 +553,9 @@ func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Cont
 				}, {
 					Match: []*v1beta1.L4MatchAttributes{
 						{
-							Port: egressPort,
+							Port: egressGateway.Spec.Servers[0].Port.Number,
 							Gateways: []string{
-								n.egressGatewayName,
+								egressGateway.Name,
 							},
 						},
 					},
@@ -467,31 +579,46 @@ func (n *DefaultNetworkManager) getOrCreateEgressVirtualService(ctx context.Cont
 func (n *DefaultNetworkManager) createEgressResources(ctx context.Context, logger logr.Logger, task *klyshkov1alpha1.TupleGenerationTask, pId uint, endpoint string) error {
 	logger = logger.WithName("Endpoint").
 		WithValues("playerID", pId, "Endpoint", endpoint)
-	hostPort := strings.Split(endpoint, ":")
-	if len(hostPort) != 2 {
+	ipPort := strings.Split(endpoint, ":")
+	if len(ipPort) != 2 {
 		logger.Info("Invalid endpoint", "PlayerID", pId, "Endpoint", endpoint)
 		return fmt.Errorf("invalid endpoint for player %d: %s", pId, endpoint)
 	}
-	p, err := strconv.ParseUint(hostPort[1], 10, 32)
+	p, err := strconv.ParseUint(ipPort[1], 10, 32)
 	if err != nil {
 		logger.Info("Invalid endpoint", "PlayerID", pId, "Endpoint", endpoint)
 		return fmt.Errorf("invalid endpoint for player %d: %s", pId, endpoint)
 	}
-	host := hostPort[0]
-	port := uint32(p)
+	endpointIp := ipPort[0]
+	endpointPort := uint32(p)
+	egressPort, err := n.egressPortManager.GetFreePort(ctx)
+	if err != nil {
+		logger.Info("Failed to get a free egress port", "Error", err)
+		return fmt.Errorf("failed to get a free egress port: %w", err)
+	}
+	logger.Info("Egress port allocated", "Port", egressPort)
+	// k8s requires the host to be a valid DNS name for the hosts. As we are using
+	// IP addresses, we use the sslip.io service to create a valid DNS name.
+	host := fmt.Sprintf("%s.sslip.io", endpointIp)
+	egressGateway, err := n.getOrCreateEgressGateway(ctx, logger, task, host, egressPort)
+	if err != nil {
+		logger.Info("Failed to create Egress Gateway", "Error", err)
+		return fmt.Errorf("failed to create Egress Gateway: %w", err)
+	}
+	logger.Info("Egress Gateway created", "Egress Gateway", egressGateway)
 	destinationRule, err := n.getOrCreateDestinationRule(ctx, logger, task, pId, host)
 	if err != nil {
 		logger.Info("Failed to create Egress DestinationRule", "Error", err)
 		return fmt.Errorf("failed to create Egress DestinationRule: %w", err)
 	}
 	logger.Info("Egress DestinationRule created", "Egress DestinationRule", destinationRule)
-	serviceEntry, err := n.createServiceEntry(ctx, logger, task, pId, host, port)
+	serviceEntry, err := n.getOrCreateServiceEntry(ctx, logger, task, pId, host, endpointIp, endpointPort)
 	if err != nil {
 		logger.Info("Failed to create Egress ServiceEntry", "Error", err)
 		return fmt.Errorf("failed to create Egress ServiceEntry: %w", err)
 	}
 	logger.Info("Egress ServiceEntry created", "Egress ServiceEntry", serviceEntry)
-	virtualService, err := n.getOrCreateEgressVirtualService(ctx, logger, task, pId, host, port)
+	virtualService, err := n.getOrCreateEgressVirtualService(ctx, logger, task, egressGateway, pId, host, endpointPort)
 	if err != nil {
 		logger.Info("Failed to create Egress VirtualService", "Error", err)
 		return fmt.Errorf("failed to create Egress VirtualService: %w", err)

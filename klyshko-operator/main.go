@@ -56,7 +56,6 @@ var (
 	egressPortRangeMin   = flag.Uint("egress-port-range-min", 30500, "The minimum port number for the egress port range.")
 	egressPortRangeMax   = flag.Uint("egress-port-range-max", 30550, "The maximum port number for the egress port range.")
 	egressServiceHost    = flag.String("egress-service-host", "istio-egressgateway.istio-system.svc.cluster.local", "The hostname of the Istio egress gateway service.")
-	egressGatewayName    = flag.String("egress-gateway-name", "partner-egressgateway", "The name of the Istio Gateway used for egress traffic.")
 	tlsEnabled           = flag.Bool("tls-enabled", false, "Enable TLS for inter-VCP communication.")
 	tlsSecretName        = flag.String("tls-secret-name", "vcp-tls-secret", "The name of the secret containing the TLS client and CA certificates.")
 )
@@ -127,7 +126,6 @@ func main() {
 	k8sClient := mgr.GetClient()
 	networkManager, err := controllers.NewNetworkManager(ingressPortRange,
 		*egressServiceHost,
-		*egressGatewayName,
 		egressPortRange,
 		tlsConfig,
 		k8sClient)

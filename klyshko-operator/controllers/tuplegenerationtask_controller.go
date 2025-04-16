@@ -60,8 +60,11 @@ type TupleGenerationTaskReconciler struct {
 // Reconcile compares the actual state of TupleGenerationTask resources to their desired state and performs actions to
 // bring the actual state closer to the desired one.
 func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx).WithValues("Task.Name", req.Name)
-	logger.V(logging.DEBUG).Info("Reconciling tuple generation task")
+	logger := log.FromContext(ctx).
+		WithValues("Task.Name", req.Name).
+		V(logging.DEBUG)
+	logger.Info("Reconciling tuple generation task")
+	defer logger.Info("Reconciliation finished")
 
 	taskKey, err := taskKeyFromName(req.Namespace, req.Name)
 	if err != nil {
@@ -95,13 +98,13 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			if err != nil {
 				return ctrl.Result{}, fmt.Errorf("failed to delete roster entry for task %v: %w", req.Name, err)
 			}
-			logger.V(logging.DEBUG).Info("Roster entry deleted")
+			logger.Info("Roster entry deleted")
 			return ctrl.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return ctrl.Result{}, fmt.Errorf("failed to read resource for task %v: %w", req.Name, err)
 	}
-	logger.V(logging.DEBUG).Info("Task exists already")
+	logger.Info("Task exists already")
 
 	// Create roster entry if not existing
 	resp, err := r.EtcdClient.Get(ctx, taskKey.ToEtcdKey())
@@ -114,9 +117,9 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to create roster entry for task %v: %w", req.Name, err)
 		}
-		logger.V(logging.DEBUG).Info("Roster entry created")
+		logger.Info("Roster entry created")
 	} else {
-		logger.V(logging.DEBUG).Info("Roster entry exists already")
+		logger.Info("Roster entry exists already")
 	}
 	status, err := r.getStatus(ctx, *taskKey)
 	if err != nil {
@@ -160,8 +163,10 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 		// Create ingress network resources for the task
 		port, err := r.NetworkManager.CreateIngressNetworkingForTask(ctx, task)
 		if err != nil {
+			logger.Error(err, "failed to create ingress networking resources for task", "task", taskKey)
 			return ctrl.Result{}, fmt.Errorf("failed to create networking resources for task %v: %w", taskKey, err)
 		}
+		logger.Info("Ingress networking resources created for task", "task", taskKey, "port", port)
 
 		// Collect all known endpoints for all CRGs of the job (local and remote) and decide based
 		// on that how to proceed.
@@ -252,7 +257,7 @@ func (r *TupleGenerationTaskReconciler) Reconcile(ctx context.Context, req ctrl.
 			// we log the error and continue. However, this may be revised in the future.
 			logger.Error(err, "failed to delete networking resources for task", "task", taskKey)
 		}
-		logger.V(logging.DEBUG).Info("Task reached a terminal state")
+		logger.Info("Task reached a terminal state")
 		return ctrl.Result{}, r.deletePVC(ctx, taskKey)
 	default:
 		return ctrl.Result{}, fmt.Errorf("unexpected state for Task %v, PVC not reclaimed", req.Name)
@@ -339,8 +344,10 @@ func (r *TupleGenerationTaskReconciler) setStatus(ctx context.Context, taskKey R
 
 // setState updates the given status object with the given state and writes the status to etcd.
 func (r *TupleGenerationTaskReconciler) setState(ctx context.Context, taskKey RosterEntryKey, status *klyshkov1alpha1.TupleGenerationTaskStatus, state klyshkov1alpha1.TupleGenerationTaskState) error {
-	logger := log.FromContext(ctx).WithValues("Task.Key", taskKey)
-	logger.V(logging.DEBUG).Info("Task transitioning into new state", "from", status.State, "to", state)
+	logger := log.FromContext(ctx).
+		WithValues("Task.Key", taskKey).
+		V(logging.DEBUG)
+	logger.Info("Task transitioning into new state", "from", status.State, "to", state)
 	status.State = state
 	return r.setStatus(ctx, taskKey, status)
 }
@@ -360,7 +367,7 @@ func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key 
 	found := &v1.PersistentVolumeClaim{}
 	err := r.Get(ctx, name, found)
 	if err == nil {
-		logger.V(logging.DEBUG).Info("Persistent volume claim already exists")
+		logger.Info("Persistent volume claim already exists")
 		return found, nil
 	}
 	pvc := &v1.PersistentVolumeClaim{
@@ -379,7 +386,7 @@ func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key 
 			},
 		},
 	}
-	logger.V(logging.DEBUG).Info("Creating persistent volume claim", "PVC", pvc)
+	logger.Info("Creating persistent volume claim", "PVC", pvc)
 	err = r.Create(ctx, pvc)
 	if err != nil {
 		return nil, fmt.Errorf("persistent volume claim creation failed for task %v: %w", key, err)
@@ -389,7 +396,9 @@ func (r *TupleGenerationTaskReconciler) getOrCreatePVC(ctx context.Context, key 
 
 // deletePVC deletes a PVC associated to a given task
 func (r *TupleGenerationTaskReconciler) deletePVC(ctx context.Context, key *RosterEntryKey) error {
-	logger := log.FromContext(ctx).WithValues("Task.Key", key)
+	logger := log.FromContext(ctx).
+		WithValues("Task.Key", key).
+		V(logging.DEBUG)
 	name := types.NamespacedName{
 		Name:      pvcName(*key),
 		Namespace: key.Namespace,
@@ -405,7 +414,7 @@ func (r *TupleGenerationTaskReconciler) deletePVC(ctx context.Context, key *Rost
 		return fmt.Errorf("persistent volume claim deletion failed for task %v: %w", key, err)
 	}
 
-	logger.V(logging.DEBUG).Info("Deleted Persistent Volume Claim for task")
+	logger.Info("Deleted Persistent Volume Claim for task")
 	return nil
 }
 
@@ -431,14 +440,16 @@ func (r *TupleGenerationTaskReconciler) getProvisionerPod(ctx context.Context, k
 // createProvisionerPod creates a provisioner pod for the task with given key. The pod takes the tuples from the PV
 // shared with the respective generator pod and uploads them to Castor.
 func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context, key RosterEntryKey, job *klyshkov1alpha1.TupleGenerationJob, task *klyshkov1alpha1.TupleGenerationTask) (*v1.Pod, error) {
-	logger := log.FromContext(ctx).WithValues("Task.Key", key)
+	logger := log.FromContext(ctx).
+		WithValues("Task.Key", key).
+		V(logging.DEBUG)
 	name := types.NamespacedName{
 		Name:      r.provisionerPodName(key),
 		Namespace: key.Namespace,
 	}
 	found, err := r.getProvisionerPod(ctx, key)
 	if err == nil {
-		logger.V(logging.DEBUG).Info("Provisioner pod already exists")
+		logger.Info("Provisioner pod already exists")
 		return found, nil
 	}
 	pod := &v1.Pod{
@@ -484,7 +495,7 @@ func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context
 			},
 		},
 	}
-	logger.V(logging.DEBUG).Info("Creating provisioner pod", "Pod", pod)
+	logger.Info("Creating provisioner pod", "Pod", pod)
 	err = ctrl.SetControllerReference(task, pod, r.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("setting the owner reference for task %v failed: %w", name, err)
@@ -527,10 +538,12 @@ func (r *TupleGenerationTaskReconciler) getGenerator(ctx context.Context, job *k
 // createGeneratorPod creates a generator pod for the task with given key. The pod generates tuples according to the
 // parameter of the given TupleGenerationJob and stores them on the PV shared with the respective provisioner pod.
 func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, key RosterEntryKey, job *klyshkov1alpha1.TupleGenerationJob, task *klyshkov1alpha1.TupleGenerationTask) (*v1.Pod, error) {
-	logger := log.FromContext(ctx).WithValues("Task.Key", key)
+	logger := log.FromContext(ctx).
+		WithValues("Task.Key", key).
+		V(logging.DEBUG)
 	found, err := r.getGeneratorPod(ctx, task)
 	if err == nil {
-		logger.V(logging.DEBUG).Info("Pod already exists")
+		logger.Info("Pod already exists")
 		return found, nil
 	}
 	vcpCount, err := numberOfVCPs(ctx, &r.Client, job.Namespace)
@@ -549,10 +562,16 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 	endpoints := r.endpoints(tasks)
 	endpointEnvVars := make([]v1.EnvVar, 0, vcpCount)
 	for playerID, endpoint := range endpoints {
+		// as ingress- and egress-port management is transparent to the generator pod. All
+		// communication is mapped to the InterCRGNetworkingPort
+		ip := strings.Split(endpoint, ":")[0]
+		//if playerID == key.PlayerID {
+		//	ip = "localhost"
+		//}
 		endpointEnvVars = append(endpointEnvVars,
 			v1.EnvVar{
 				Name:  fmt.Sprintf("KII_PLAYER_ENDPOINT_%d", playerID),
-				Value: endpoint,
+				Value: fmt.Sprintf("%s:%d", ip, InterCRGNetworkingPort),
 			},
 		)
 	}
@@ -647,8 +666,12 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 							Exec: &v1.ExecAction{
 								// This is a workaround to terminate the istio-proxy sidecar
 								// when generator pod is finished. There may be other options
-								// for newer k8s versions, but adds somehwat backwards
-								// compatibility.
+								// for newer k8s versions, but adds somewhat backwards
+								// compatibility. However, it is not guaranteed to work
+								// in all cases as the handler is run when the container
+								// is getting the termination signal and inside the
+								// container. If termination is faster than the handler,
+								// the istio-proxy sidecar may not be terminated.
 								// This handler creates a file in the shared volume which is
 								// then used by the curl container to trigger the istio-proxy
 								// termination.
@@ -727,7 +750,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 			},
 		},
 	}
-	logger.V(logging.DEBUG).Info("Creating generator pod", "Pod", pod)
+	logger.Info("Creating generator pod", "Pod", pod)
 	err = ctrl.SetControllerReference(task, pod, r.Scheme)
 	if err != nil {
 		return nil, fmt.Errorf("setting the owner reference for task %v failed: %w", task.Name, err)
@@ -741,7 +764,9 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 
 // getOrCreateService creates (if not existing) the service to expose the CRG endpoint for inter-CRG networking.
 func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, key *RosterEntryKey, task *klyshkov1alpha1.TupleGenerationTask) error {
-	logger := log.FromContext(ctx).WithValues("Task.Key", key)
+	logger := log.FromContext(ctx).
+		WithValues("Task.Key", key).
+		V(logging.DEBUG)
 	name := types.NamespacedName{
 		Name:      task.Name,
 		Namespace: task.Namespace,
@@ -749,7 +774,7 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 	found := &v1.Service{}
 	err := r.Get(ctx, name, found)
 	if err == nil {
-		logger.V(logging.DEBUG).Info("Service already exists")
+		logger.Info("Service already exists")
 		return nil
 	}
 	service := &v1.Service{
@@ -770,7 +795,7 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 			Type: v1.ServiceTypeClusterIP,
 		},
 	}
-	logger.V(logging.DEBUG).Info("Creating service", "Service", service)
+	logger.Info("Creating service", "Service", service)
 	err = ctrl.SetControllerReference(task, service, r.Scheme)
 	if err != nil {
 		return fmt.Errorf("setting the owner reference for task %v failed: %w", task.Name, err)
@@ -784,7 +809,9 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 
 // tasksForJob returns the existing and retrievable tasks (remote and local) for the given job.
 func (r *TupleGenerationTaskReconciler) tasksForJob(ctx context.Context, job *klyshkov1alpha1.TupleGenerationJob) (map[uint]*klyshkov1alpha1.TupleGenerationTask, error) {
-	logger := log.FromContext(ctx).WithValues("Job", job.Name)
+	logger := log.FromContext(ctx).
+		WithValues("Job", job.Name).
+		V(logging.DEBUG)
 	numberOfVCPs, err := numberOfVCPs(ctx, &r.Client, job.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get number of VCPs: %w", err)
@@ -797,12 +824,12 @@ func (r *TupleGenerationTaskReconciler) tasksForJob(ctx context.Context, job *kl
 			Name:      taskName(job.Name, i),
 		}, task)
 		if err != nil {
-			logger.V(logging.DEBUG).Info("failed to get task", "PlayerID", i, "Error", err)
+			logger.Info("failed to get task", "PlayerID", i, "Error", err)
 			continue
 		}
 		tasksByPlayerId[i] = task
 	}
-	if logger.V(logging.DEBUG).Enabled() {
+	if logger.Enabled() {
 		var names []types.NamespacedName
 		for _, task := range tasksByPlayerId {
 			names = append(names, types.NamespacedName{
@@ -810,7 +837,7 @@ func (r *TupleGenerationTaskReconciler) tasksForJob(ctx context.Context, job *kl
 				Name:      task.Name,
 			})
 		}
-		logger.V(logging.DEBUG).Info("Tasks collected", "Tasks", names)
+		logger.Info("Tasks collected", "Tasks", names)
 	}
 	return tasksByPlayerId, nil
 }

@@ -41,7 +41,7 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
-            - --zap-log-level=info
+            - --zap-log-level={{ .Values.controller.logLevel }}
             - --provisioner-image={{ printf "%s/%s:%s" .Values.provisioner.image.registry .Values.provisioner.image.repository .Values.provisioner.image.tag }}
             - --etcd-endpoint={{ .Values.controller.etcd.endpoint }}
             - --etcd-dial-timeout={{ .Values.controller.etcd.dialTimeout }}
@@ -51,7 +51,6 @@ spec:
             - --egress-port-range-min={{ .Values.controller.egress.portRange.min }}
             - --egress-port-range-max={{ .Values.controller.egress.portRange.max }}
             - --egress-service-host={{ .Values.controller.egress.serviceHost }}
-            - --egress-gateway-name={{ .Values.controller.egress.gatewayName }}
             - --tls-enabled={{ .Values.controller.tls.enabled }}
             - --tls-secret-name={{ .Values.controller.tls.secretName }}
             - --vcp-ip-address={{ .Values.controller.vcpIp }}
