@@ -41,9 +41,13 @@ spec:
             - --health-probe-bind-address=:8081
             - --metrics-bind-address=127.0.0.1:8080
             - --leader-elect
-            - --zap-log-level=info
+            - --zap-log-level={{ .Values.controller.logLevel }}
             - --provisioner-image={{ printf "%s/%s:%s" .Values.provisioner.image.registry .Values.provisioner.image.repository .Values.provisioner.image.tag }}
-            - --etcd-endpoint={{ .Values.controller.etcdEndpoint }}
+            - --etcd-endpoint={{ .Values.controller.etcd.endpoint }}
+            - --etcd-dial-timeout={{ .Values.controller.etcd.dialTimeout }}
+            - --castor-url={{ .Values.controller.castorUrl }}
+            - --tls-mode={{ .Values.controller.tls.mode }}
+            - --tls-secret-name={{ .Values.controller.tls.secretName }}
           command:
             - /manager
           image:  "{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}"

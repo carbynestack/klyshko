@@ -75,6 +75,21 @@ declare -A tupleFileByType=(
   ["MULTIPLICATION_TRIPLE_GF2N"]="${pc}-2-40/Triples-2-P${pn}"
 )
 
+if [ "${KII_TLS_ENABLED^^}" = "TRUE" ]; then
+  if [ -z "${KII_TLS_CACERT}" ]; then
+    echo "KII_TLS_CACERT environment variable must be set to the path of the CA certificate."
+    exit 1
+  fi
+  if [ -z "${KII_TLS_CERT}" ]; then
+    echo "KII_TLS_CERT environment variable must be set to the path of the client certificate."
+    exit 1
+  fi
+  if [ -z "${KII_TLS_KEY}" ]; then
+    echo "KII_TLS_KEY environment variable must be set to the path of the client key."
+    exit 1
+  fi
+fi
+
 # Provide parameters in MP-SPDZ "Player-Data" folder.
 # Note that we always provide parameters for both prime fields and fields of
 # characteristic 2 regardless of the tuple type requested for reasons of simplicity.
@@ -103,8 +118,28 @@ do
   echo ${!endpointEnvName}
 done >> ${playerFile}
 
+# Prepare secure communication
+secureOption=""
+if [ "${KII_TLS_ENABLED^^}" = "TRUE" ]; then
+  secureOption="--secure-communication"
+  for (( i=0; i<pc; i++ ))
+  do
+    if [ "$i" -eq "${KII_PLAYER_NUMBER}" ]; then
+      # Use the client certificate and key for the player itself
+      cp "${KII_TLS_CERT}" "Player-Data/P${i}.pem"
+      cp "${KII_TLS_KEY}" "Player-Data/P${i}.key"
+    else
+      # Use the CA certificate for all other players
+      cp "${KII_TLS_CACERT}" "Player-Data/P${i}.pem"
+    fi
+  done
+  c_rehash Player-Data
+fi
+
+
 # Execute cowgear offline phase
-cmd="cowgear-offline.x --player ${KII_PLAYER_NUMBER} --number-of-parties ${KII_PLAYER_COUNT} --playerfile ${playerFile} --tuple-count ${KII_TUPLES_PER_JOB} ${argsByType[${KII_TUPLE_TYPE}]} ${KII_PLAYER_COUNT}"
+cmd="cowgear-offline.x ${secureOption} --player ${KII_PLAYER_NUMBER} --number-of-parties ${KII_PLAYER_COUNT} --playerfile ${playerFile} --tuple-count ${KII_TUPLES_PER_JOB} ${argsByType[${KII_TUPLE_TYPE}]} ${KII_PLAYER_COUNT}"
+echo "Executing command: ${cmd}"
 retry 5 eval "$cmd"
 
 # Copy generated tuples to path expected by KII

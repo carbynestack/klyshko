@@ -1,17 +1,19 @@
 /*
-Copyright (c) 2022 - for information on the respective copyright owner
-see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
-
-SPDX-License-Identifier: Apache-2.0
-*/
+ * Copyright (c) 2022-2025 - for information on the respective copyright owner
+ * see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 package main
 
 import (
 	"flag"
-	"github.com/carbynestack/klyshko/castor"
+	"fmt"
 	"os"
 	"time"
+
+	"github.com/carbynestack/klyshko/castor"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -49,6 +51,8 @@ var (
 	etcdDialTimeout      = flag.Int("etcd-dial-timeout", 5, "The timeout (in seconds) for failing to establish a connection to the etcd service.")
 	castorURL            = flag.String("castor-url", "http://cs-castor.default.svc.cluster.local:10100", "The base url of the castor service used to upload generated tuples.")
 	provisionerImage     = flag.String("provisioner-image", "ghcr.io/carbynestack/klyshko-provisioner:latest", "The name of the provisioner image.")
+	tlsSecretName        = flag.String("tls-secret-name", "vcp-tls-secret", "The name of the secret containing the TLS client and CA certificates.")
+	tlsMode              = flag.String("tls-mode", "runtime", "The TLS mode for inter-VCP communication. Possible values: [disabled, runtime].")
 )
 
 func main() {
@@ -100,11 +104,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	var tlsConfig *controllers.TLSConfig
+	if mode, err := controllers.ParseTlsMode(*tlsMode); err != nil {
+		setupLog.Error(err, "invalid tls mode", "tls-mode", *tlsMode)
+		os.Exit(1)
+	} else {
+		if *tlsSecretName == "" {
+			setupLog.Error(fmt.Errorf("tls enabled but secret name not set"), "tls-mode", mode)
+			os.Exit(1)
+		}
+		tlsConfig = &controllers.TLSConfig{Mode: mode, SecretName: *tlsSecretName}
+	}
+	if err != nil {
+		setupLog.Error(err, "invalid tls mode", "controller", "TupleGenerationTask")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.TupleGenerationTaskReconciler{
 		Client:           mgr.GetClient(),
 		Scheme:           mgr.GetScheme(),
 		EtcdClient:       etcdClient,
 		ProvisionerImage: *provisionerImage,
+		TLSConfig:        tlsConfig,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TupleGenerationTask")
 		os.Exit(1)

@@ -37,6 +37,39 @@ const (
 	headRevisionOpRetryPeriod = 5 * time.Second
 )
 
+type TlsMode int
+
+const (
+	TlsModeDisabled TlsMode = iota
+	TlsModeRuntime
+)
+
+func (m TlsMode) String() string {
+	switch m {
+	case TlsModeDisabled:
+		return "disabled"
+	case TlsModeRuntime:
+		return "runtime"
+	}
+	return "unknown"
+}
+
+func ParseTlsMode(tlsMode string) (TlsMode, error) {
+	switch tlsMode {
+	case "disabled":
+		return TlsModeDisabled, nil
+	case "runtime":
+		return TlsModeRuntime, nil
+	default:
+		return 0, fmt.Errorf("unknown TLS mode")
+	}
+}
+
+type TLSConfig struct {
+	SecretName string
+	Mode       TlsMode
+}
+
 // TupleGenerationJobReconciler reconciles a TupleGenerationJob object.
 type TupleGenerationJobReconciler struct {
 	client.Client

@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-FROM python:3.11.3-bullseye as buildenv
+FROM python:3.11.3-bullseye AS buildenv
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential=12.9 \
@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libboost-thread-dev=1.74.0.3 \
     libntl-dev=11.4.3-1+b1 \
     libsodium-dev=1.0.18-1 \
-    libssl-dev=1.1.1n-0+deb11u5 \
+    libssl-dev=1.1.1w-0+deb11u2 \
     gdb=10.1-1.7 \
     valgrind=1:3.16.1-1 \
     && rm -rf /var/lib/apt/lists/*
@@ -39,8 +39,9 @@ ARG RELEASE_PAGE="https://github.com/carbynestack/klyshko/releases"
 COPY --from=buildenv \
     /MP-SPDZ/libSPDZ.so \
     /MP-SPDZ/libFHE.so \
-    /MP-SPDZ/local/lib/libboost_filesystem.so.1.81.0 \
-    /MP-SPDZ/local/lib/libboost_system.so.1.81.0 \
+    /MP-SPDZ/local/lib/libboost_filesystem.so.1.83.0 \
+    /MP-SPDZ/local/lib/libboost_system.so.1.83.0 \
+    /MP-SPDZ/local/lib/libboost_iostreams.so.1.83.0 \
     /usr/lib/x86_64-linux-gnu/libboost_thread.so.1.74.0 \
     /usr/local/lib/
 COPY --from=buildenv \
