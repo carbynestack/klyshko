@@ -1,16 +1,17 @@
-/*
-Copyright (c) 2022-2024 - for information on the respective copyright owner
-see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+//+build integration
 
-SPDX-License-Identifier: Apache-2.0
-*/
+/*
+ * Copyright (c) 2022-2025 - for information on the respective copyright owner
+ * see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 package controllers
 
 import (
 	"context"
 	"fmt"
-	"io"
 	"math"
 	"path/filepath"
 	"strconv"
@@ -173,8 +174,8 @@ type Controller interface {
 func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *clientv3.Client, castorURL string) error {
 	k8sManager, err := ctrl.NewManager(vcp.cfg, ctrl.Options{
 		Scheme:             scheme.Scheme,
-		MetricsBindAddress: "0",                                             // Avoid colliding metrics servers by disabling
-		Logger:             logf.Log.WithName(fmt.Sprintf("vcp-%d", vcpID)), // use scoped logger to ease debugging
+		MetricsBindAddress: "0",                                                                     // Avoid colliding metrics servers by disabling
+		Logger:             logf.FromContext(context.TODO()).WithName(fmt.Sprintf("vcp-%d", vcpID)), // use scoped logger to ease debugging
 	})
 	if err != nil {
 		return err
@@ -188,6 +189,7 @@ func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *cli
 			Scheme:           k8sManager.GetScheme(),
 			EtcdClient:       etcdClient,
 			ProvisionerImage: "carbynestack/klyshko-provisioner:1.0.0-SNAPSHOT",
+			TLSConfig:        nil,
 		},
 	}
 	if vcpID == 0 {
@@ -285,7 +287,6 @@ func setupCastorServiceResponders(numberOfAvailableTuples int, tupleType string)
 }
 
 var _ = Describe("In case of shortage of tuples", func() {
-
 	var (
 		ctx       context.Context
 		cancel    context.CancelFunc
@@ -680,7 +681,6 @@ func ensureServiceCreatedOnEachVcp(ctx context.Context, vc *vc, localTasks []kly
 			Namespace: localTasks[i].Namespace,
 			Name:      localTasks[i].Name,
 		}
-		io.WriteString(GinkgoWriter, fmt.Sprintf("!!!!!!!!!!!!! looking for %v in %d\n", name, i))
 		Eventually(func() bool {
 			err := vc.vcps[i].k8sClient.Get(ctx, name, &services[i])
 			if err != nil {

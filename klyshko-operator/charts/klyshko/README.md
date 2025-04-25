@@ -82,13 +82,17 @@ helm install --name my-release -f values.yaml klyshko
 
 ### Controller
 
-| Parameter                     | Description                                                     | Default                                    |
-| ----------------------------- | --------------------------------------------------------------- | ------------------------------------------ |
-| `controller.image.registry`   | Image registry used to pull the controller image                | `ghcr.io`                                  |
-| `controller.image.repository` | Controller image name                                           | `carbynestack/klyshko-operator-controller` |
-| `controller.image.tag`        | Controller image tag                                            | `latest`                                   |
-| `controller.image.pullPolicy` | Controller image pull policy                                    | `IfNotPresent`                             |
-| `controller.etcdEndpoint`     | The address of the etcd service used for cross VCP coordination | `172.18.1.129:2379`                        |
+| Parameter                     | Description                                                                       | Default                                    |
+| ----------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------ |
+| `controller.image.registry`   | Image registry used to pull the controller image                                  | `ghcr.io`                                  |
+| `controller.image.repository` | Controller image name                                                             | `carbynestack/klyshko-operator-controller` |
+| `controller.image.tag`        | Controller image tag                                                              | `latest`                                   |
+| `controller.image.pullPolicy` | Controller image pull policy                                                      | `IfNotPresent`                             |
+| `controller.etcd.endpoint`    | The address of the etcd service used for cross VCP coordination                   | `172.18.1.129:2379`                        |
+| `controller.etcd.dialTimeout` | The timeout (in seconds) for the etcd client to establish a connection            | `5`                                        |
+| `controller.castorUrl`        | The URL of the Castor service                                                     | `http://castor:8080`                       |
+| `controller.tls.mode`         | The TLS mode for inter-VCP communication. Possible values: \[disabled, runtime\]. | `disabled`                                 |
+| `controller.tls.secretName`   | The k8s secret containing the TLS client and CA certificates                      |                                            |
 
 ### Provisioner
 

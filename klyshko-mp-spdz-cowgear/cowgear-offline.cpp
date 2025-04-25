@@ -18,6 +18,7 @@
 #include <fstream>
 #include <assert.h>
 #include <boost/filesystem.hpp>
+#include <sstream>
 
 /**
  * Outputs the specified number of tuples of the given type into a file in the given directory.
@@ -52,7 +53,7 @@ void generate_tuples(Preprocessing<T> &preprocessing, Dtype tuple_type, int tupl
 }
 
 template <class T>
-void generate_tuples(int player_id, int number_of_players, int port, int tuple_count, string tuple_type, string playerfile)
+void generate_tuples(int player_id, int number_of_players, int port, int tuple_count, string tuple_type, string playerfile, bool secure_communication)
 {
     // Create working directory, if it doesn't exist yet
     std::string working_dir = get_prep_sub_dir<T>(PREP_DIR, number_of_players);
@@ -67,23 +68,31 @@ void generate_tuples(int player_id, int number_of_players, int port, int tuple_c
     Names N;
     N.init(player_id, port, playerfile, number_of_players);
 
-    PlainPlayer P(N);
+    Player* P;
+    if (secure_communication)
+    {
+        P = new CryptoPlayer(N);
+    }
+    else
+    {
+        P = new PlainPlayer(N);
+    }
 
     T::clear::template write_setup<T>(number_of_players);
 
     // Initialize MAC key, if not existing
-    auto mac_key = read_generate_write_mac_key<T>(P);
+    auto mac_key = read_generate_write_mac_key<T>(*P);
 
     // Required for keeping track of preprocessing material
-    DataPositions usage(P.num_players());
+    DataPositions usage(P->num_players());
 
     // Configure the player to use given MAC key
     typename T::MAC_Check output(mac_key);
-    output.setup(P);
+    output.setup(*P);
 
     // Initialize preprocessing
     CowGearPrep<T> preprocessing(0, usage);
-    SubProcessor<T> processor(output, preprocessing, P);
+    SubProcessor<T> processor(output, preprocessing, *P);
 
     // Generate requested tuples
     if (tuple_type == "bits")
@@ -113,7 +122,7 @@ void generate_tuples(int player_id, int number_of_players, int port, int tuple_c
     }
 
     // Perform the MAC check
-    output.Check(P);
+    output.Check(*P);
 }
 
 int main(int argc, const char **argv)
@@ -193,10 +202,25 @@ int main(int argc, const char **argv)
         "-tc",                                            // Short name
         "--tuple-count"                                   // Long name
     );
+    opt.add(
+        "", // Default value
+        0, // Required?
+        0, // Number of values expected
+        0, // Delimiter, if expecting multiple args
+        "Secure communication using TLS (default: false)", // Help description
+        "-sc", // Short name
+        "--secure-communication" // Long name
+    );
     opt.parse(argc, argv);
     if (!opt.isSet("-N") || !opt.isSet("-p") || !opt.isSet("-ft") || !opt.isSet("-tt"))
     {
-        string usage;
+        std::ostringstream oss;
+        oss << "Invalid or missing arguments" << endl;
+        for (int i = 0; i < argc-1; ++i) {
+            oss << argv[i] << " ";
+        }
+        oss << argv[argc-1] << endl;
+        string usage = oss.str();
         opt.getUsage(usage);
         cout << usage;
         exit(0);
@@ -241,7 +265,7 @@ int main(int argc, const char **argv)
         // Define share type
         typedef CowGearShare<F> T;
 
-        generate_tuples<T>(player_id, number_of_players, port, tuple_count, tuple_type, playerfile);
+        generate_tuples<T>(player_id, number_of_players, port, tuple_count, tuple_type, playerfile, opt.isSet("-sc"));
     }
     else if (field_type == "gf2n")
     {
@@ -251,7 +275,7 @@ int main(int argc, const char **argv)
         // Initialize field
         gf2n_short::init_field(40);
 
-        generate_tuples<T>(player_id, number_of_players, port, tuple_count, tuple_type, playerfile);
+        generate_tuples<T>(player_id, number_of_players, port, tuple_count, tuple_type, playerfile, opt.isSet("-sc"));
     } else {
         std::cerr << "Field type not supported: " << field_type << std::endl;
         exit(EXIT_FAILURE);

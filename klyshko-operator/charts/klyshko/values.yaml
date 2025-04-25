@@ -16,7 +16,15 @@ controller:
     repository: carbynestack/klyshko-operator-controller
     pullPolicy: IfNotPresent
     tag: latest
-  etcdEndpoint: 172.18.1.129:2379
+  etcd:
+    endpoint: 172.18.1.129:2379
+    dialTimeout: 5
+  castorUrl: http://cs-castor.default.svc.cluster.local:10100
+  tls:
+    mode: disabled
+    secretName:
+  logLevel: info
+
 
 provisioner:
   image:
