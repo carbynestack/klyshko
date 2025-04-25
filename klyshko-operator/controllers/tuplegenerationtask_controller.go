@@ -38,13 +38,57 @@ const (
 	InterCRGNetworkingPort = 5000
 )
 
+// TlsMode is used to configure the TLS mode for inter-CRG communication.
+type TlsMode int
+
+const (
+	// TlsModeDisabled disables TLS for inter-CRG communication.
+	TlsModeDisabled TlsMode = iota
+	// TlsModeRuntime enables TLS for inter-CRG communication managed by the
+	// crg runtime. TLS certificates are therefore mounted into the generator
+	// pod.
+	TlsModeRuntime
+)
+
+func (m TlsMode) String() string {
+	switch m {
+	case TlsModeDisabled:
+		return "disabled"
+	case TlsModeRuntime:
+		return "runtime"
+	}
+	return "unknown"
+}
+
+// ParseTlsMode parses the given string into a TlsMode value. It returns an
+// error if the string does not match any known TlsMode.
+func ParseTlsMode(tlsMode string) (TlsMode, error) {
+	switch tlsMode {
+	case "disabled":
+		return TlsModeDisabled, nil
+	case "runtime":
+		return TlsModeRuntime, nil
+	default:
+		return 0, fmt.Errorf("unknown TLS mode")
+	}
+}
+
+// TLSConfig is used to configure the TLS for inter-CRG communication.
+type TLSConfig struct {
+	SecretName string
+	Mode       TlsMode
+}
+
 // TupleGenerationTaskReconciler reconciles a TupleGenerationTask object.
 type TupleGenerationTaskReconciler struct {
 	client.Client
 	Scheme           *runtime.Scheme
 	EtcdClient       *clientv3.Client
 	ProvisionerImage string
-	TLSConfig        *TLSConfig
+	// TLSConfig is used to configure the TLS for inter-CRG communication.
+	// Communication is insecure if TLSConfig is nil or TLSConfig.Mode is
+	// TlsModeDisabled.
+	TLSConfig *TLSConfig
 }
 
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks,verbs=get;list;watch;create;update;patch;delete

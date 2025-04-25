@@ -108,16 +108,12 @@ func main() {
 	if mode, err := controllers.ParseTlsMode(*tlsMode); err != nil {
 		setupLog.Error(err, "invalid tls mode", "tls-mode", *tlsMode)
 		os.Exit(1)
-	} else {
+	} else if mode != controllers.TlsModeDisabled {
 		if *tlsSecretName == "" {
-			setupLog.Error(fmt.Errorf("tls enabled but secret name not set"), "tls-mode", mode)
+			setupLog.Error(fmt.Errorf("invalid TLS config"), "tls enabled but secret name not set", "tls-mode", mode)
 			os.Exit(1)
 		}
 		tlsConfig = &controllers.TLSConfig{Mode: mode, SecretName: *tlsSecretName}
-	}
-	if err != nil {
-		setupLog.Error(err, "invalid tls mode", "controller", "TupleGenerationTask")
-		os.Exit(1)
 	}
 
 	if err = (&controllers.TupleGenerationTaskReconciler{
