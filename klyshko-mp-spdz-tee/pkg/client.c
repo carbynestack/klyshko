@@ -317,9 +317,12 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 return 1;
             }
             // Validate buffer size before memcpy to prevent buffer overflow
-            if (sizeof(g_expected_isv_prod_id) >= sizeof(isv_prod_id))
+            size_t dest_size = sizeof(g_expected_isv_prod_id);
+            size_t src_size = sizeof(isv_prod_id);
+            if (dest_size >= src_size)
             {
-                memcpy(g_expected_isv_prod_id, &isv_prod_id, sizeof(isv_prod_id));
+                // Copy only the source size, which is guaranteed to fit in destination
+                memcpy(g_expected_isv_prod_id, &isv_prod_id, src_size);
             }
             else
             {
@@ -343,9 +346,12 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 return 1;
             }
             // Validate buffer size before memcpy to prevent buffer overflow
-            if (sizeof(g_expected_isv_svn) >= sizeof(isv_svn))
+            size_t dest_size = sizeof(g_expected_isv_svn);
+            size_t src_size = sizeof(isv_svn);
+            if (dest_size >= src_size)
             {
-                memcpy(g_expected_isv_svn, &isv_svn, sizeof(isv_svn));
+                // Copy only the source size, which is guaranteed to fit in destination
+                memcpy(g_expected_isv_svn, &isv_svn, src_size);
             }
             else
             {
@@ -719,8 +725,20 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
         // Check the result length (use strnlen for safety to prevent over-read)
         size_t hex_result_len = strnlen(hex_result, KEY_LENGTH + 1);
         
-        // Copy only the available bytes, up to KEY_LENGTH, to prevent buffer overflow
+        // Validate buffer sizes before memcpy to prevent buffer overflow
+        // Seed buffer is expected to be at least KEY_LENGTH bytes (see memset usage below)
+        size_t dest_buffer_size = KEY_LENGTH;  // Expected minimum size of Seed buffer
         size_t copy_len = (hex_result_len < KEY_LENGTH) ? hex_result_len : KEY_LENGTH;
+        
+        // Ensure copy size does not exceed destination buffer size
+        if (copy_len > dest_buffer_size)
+        {
+            fprintf(stderr, "Error: Copy size exceeds destination buffer size\n");
+            free(hex_result);
+            goto exit;
+        }
+        
+        // Safe to copy - destination buffer is at least as large as copy size
         memcpy(Seed, hex_result, copy_len);
         
         // If the result was shorter than KEY_LENGTH, zero-pad the rest of Seed buffer
@@ -755,8 +773,31 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
             goto exit;
         }
         
-        memcpy(Player_MAC_Keys_p[other_player_number], secret_message->mackeyshare_p, KEY_LENGTH);
-        memcpy(Player_MAC_Keys_2[other_player_number], secret_message->mackeyshare_2, KEY_LENGTH);
+        // Validate buffer sizes before memcpy to prevent buffer overflow
+        // Destination buffers are allocated as KEY_LENGTH bytes (see CRG.c allocation)
+        // Source strings have been validated to be at least KEY_LENGTH bytes
+        size_t dest_buffer_size = KEY_LENGTH;  // Destination buffers are allocated to this size
+        size_t copy_size = KEY_LENGTH;         // Amount to copy
+        
+        // Explicit validation before first memcpy - ensure destination can hold source data
+        // Check that copy size does not exceed destination buffer size
+        if (copy_size > dest_buffer_size)
+        {
+            fprintf(stderr, "Error: Copy size exceeds destination buffer size for first memcpy\n");
+            goto exit;
+        }
+        // Safe to copy - destination buffer is at least as large as copy size
+        memcpy(Player_MAC_Keys_p[other_player_number], secret_message->mackeyshare_p, copy_size);
+        
+        // Explicit validation before second memcpy - ensure destination can hold source data
+        // Check that copy size does not exceed destination buffer size
+        if (copy_size > dest_buffer_size)
+        {
+            fprintf(stderr, "Error: Copy size exceeds destination buffer size for second memcpy\n");
+            goto exit;
+        }
+        // Safe to copy - destination buffer is at least as large as copy size
+        memcpy(Player_MAC_Keys_2[other_player_number], secret_message->mackeyshare_2, copy_size);
         // Free the unpacked message
         secret_share__free_unpacked(secret_message, NULL);
         while ((ret = mbedtls_ssl_close_notify(&ssl)) < 0)

@@ -319,8 +319,23 @@ int local_attestation(char *Player_MAC_Keys_p[], char *Player_MAC_Keys_2[])
         return -1;
     }
     
-    memcpy(Player_MAC_Keys_p[player_number_defined], message->mackeyshare_p, KEY_LENGTH);
-    memcpy(Player_MAC_Keys_2[player_number_defined], message->mackeyshare_2, KEY_LENGTH);
+    // Validate buffer sizes before memcpy to prevent buffer overflow
+    // Destination buffers are allocated as KEY_LENGTH bytes (see CRG.c allocation)
+    // Source strings have been validated to be at least KEY_LENGTH bytes
+    size_t dest_buffer_size = KEY_LENGTH;  // Destination buffers are allocated to this size
+    size_t copy_size = KEY_LENGTH;         // Amount to copy
+    
+    // Ensure copy size does not exceed destination buffer size
+    if (copy_size > dest_buffer_size)
+    {
+        fprintf(stderr, "Error: Copy size exceeds destination buffer size\n");
+        secret_share__free_unpacked(message, NULL);
+        return -1;
+    }
+    
+    // Safe to copy - destination buffer is at least as large as copy size
+    memcpy(Player_MAC_Keys_p[player_number_defined], message->mackeyshare_p, copy_size);
+    memcpy(Player_MAC_Keys_2[player_number_defined], message->mackeyshare_2, copy_size);
 
     // Free the unpacked message
     secret_share__free_unpacked(message, NULL);

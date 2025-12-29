@@ -397,24 +397,41 @@ int main(int argc, char **argv)
             // Get the length of the argument to append (safely with strnlen)
             size_t arg_len = strnlen(args[i], remaining);
             
-            // Check if we have enough space for the argument (need space for arg + space + null terminator)
-            if (arg_len < remaining)
+            // Check if we have enough space for the argument
+            // For first argument: need space for arg + null terminator
+            // For subsequent arguments: need space for space + arg + null terminator
+            size_t space_needed = (cmdString_len > 0) ? arg_len + 1 : arg_len; // +1 for space before arg if not first
+            
+            if (space_needed <= remaining)
             {
-                // Safely concatenate argument using strncat with the actual argument length
-                strncat(cmdString, args[i], arg_len);
-                cmdString_len += arg_len;  // Update length manually
-                remaining = sizeof(cmdString) - cmdString_len - 1;
-                
-                // Add space between arguments if there's room
-                if (remaining > 0)
+                // Use snprintf to safely append argument (safer than strncat)
+                // For first argument: just append the argument
+                // For subsequent arguments: append space + argument
+                int written;
+                if (cmdString_len > 0)
                 {
-                    strncat(cmdString, " ", 1);
-                    cmdString_len += 1;  // Update length manually for space
+                    // Not the first argument - add space before it
+                    written = snprintf(cmdString + cmdString_len, remaining + 1, " %s", args[i]);
                 }
                 else
                 {
-                    fprintf(stderr, "Warning: Command string buffer nearly full, skipping space\n");
+                    // First argument - no leading space
+                    written = snprintf(cmdString + cmdString_len, remaining + 1, "%s", args[i]);
                 }
+                
+                // Check if snprintf succeeded (written >= 0) and didn't truncate (written < remaining + 1)
+                if (written < 0)
+                {
+                    fprintf(stderr, "Error: snprintf failed while building command string\n");
+                    break;
+                }
+                else if ((size_t)written >= remaining + 1)
+                {
+                    fprintf(stderr, "Error: Command string too long, cannot add argument: %s\n", args[i]);
+                    break;
+                }
+                
+                cmdString_len += written;  // Update length with actual bytes written
             }
             else
             {
