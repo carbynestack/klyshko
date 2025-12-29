@@ -118,8 +118,10 @@ int local_attestation(char *Player_MAC_Keys_p[], char *Player_MAC_Keys_2[])
     mbedtls_printf("  . Seeding the random number generator...");
     fflush(stdout);
 
+    // Use strnlen to safely get string length and prevent over-read if not null-terminated
+    size_t pers_len = strnlen(pers, 64);
     ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                (const unsigned char *)pers, strlen(pers));
+                                (const unsigned char *)pers, pers_len);
     if (ret != 0)
     {
         mbedtls_printf(" failed\n  ! mbedtls_ctr_drbg_seed returned %d\n", ret);
@@ -206,15 +208,6 @@ int local_attestation(char *Player_MAC_Keys_p[], char *Player_MAC_Keys_2[])
 
     mbedtls_printf(" ok\n");
 
-    // reset:
-    // #ifdef MBEDTLS_ERROR_C
-    //     if (ret != 0) {
-    //         char error_buf[100];
-    //         mbedtls_strerror(ret, error_buf, sizeof(error_buf));
-    //         mbedtls_printf("Last error was: %d - %s\n\n", ret, error_buf);
-    //     }
-    // #endif
-
     mbedtls_net_free(&client_fd);
 
     mbedtls_ssl_session_reset(&ssl);
@@ -297,6 +290,35 @@ int local_attestation(char *Player_MAC_Keys_p[], char *Player_MAC_Keys_2[])
     printf(" Step 3 Recieved the Mac shares from KII \n");
     // Player_MAC_Keys_p[player_number_defined] = message->mackeyshare_p;
     // Player_MAC_Keys_2[player_number_defined] = message->mackeyshare_2;
+    
+    // Validate inputs before memcpy to prevent buffer overflow
+    if (message == NULL || 
+        message->mackeyshare_p == NULL || 
+        message->mackeyshare_2 == NULL ||
+        player_number_defined < 0 || 
+        player_number_defined >= number_of_players ||
+        Player_MAC_Keys_p[player_number_defined] == NULL ||
+        Player_MAC_Keys_2[player_number_defined] == NULL)
+    {
+        fprintf(stderr, "Error: Invalid input parameters for memcpy\n");
+        if (message != NULL)
+        {
+            secret_share__free_unpacked(message, NULL);
+        }
+        return -1;
+    }
+    
+    // Check source string lengths to prevent buffer overflow
+    size_t mackeyshare_p_len = strnlen(message->mackeyshare_p, KEY_LENGTH + 1);
+    size_t mackeyshare_2_len = strnlen(message->mackeyshare_2, KEY_LENGTH + 1);
+    
+    if (mackeyshare_p_len < KEY_LENGTH || mackeyshare_2_len < KEY_LENGTH)
+    {
+        fprintf(stderr, "Error: MAC key share length is too short (expected %d bytes)\n", KEY_LENGTH);
+        secret_share__free_unpacked(message, NULL);
+        return -1;
+    }
+    
     memcpy(Player_MAC_Keys_p[player_number_defined], message->mackeyshare_p, KEY_LENGTH);
     memcpy(Player_MAC_Keys_2[player_number_defined], message->mackeyshare_2, KEY_LENGTH);
 

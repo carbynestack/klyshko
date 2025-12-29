@@ -23,7 +23,6 @@ static void my_debug(void *ctx, int level, const char *file, int line, const cha
     fflush((FILE *)ctx);
 }
 
-//***$$$***
 static ssize_t file_read(const char *path, char *buf, size_t count)
 {
     FILE *f = fopen(path, "r");
@@ -44,11 +43,17 @@ static ssize_t file_read(const char *path, char *buf, size_t count)
 
     return bytes;
 }
-//***$$$***
 
 static int parse_hex(const char *hex, void *buffer, size_t buffer_size)
 {
-    if (strlen(hex) != buffer_size * 2)
+    // Use strnlen to safely check string length and prevent over-read if not null-terminated
+    // Use a reasonable maximum (expected length + some margin) to detect non-null-terminated strings
+    size_t max_len = buffer_size * 2 + 10;
+    size_t hex_len = strnlen(hex, max_len);
+    
+    // Check if string length matches expected length
+    // If hex_len equals max_len, the string is longer than expected or not null-terminated
+    if (hex_len != buffer_size * 2 || hex_len == max_len)
         return -1;
 
     for (size_t i = 0; i < buffer_size; i++)
@@ -155,24 +160,20 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
     ra_tls_set_measurement_callback_f = NULL;
     struct ra_tls_verify_callback_results my_verify_callback_results = {0};
 
-    //***$$$***
     void *ra_tls_attest_lib;
     int (*ra_tls_create_key_and_crt_der_f)(uint8_t **der_key, size_t *der_key_size,
                                            uint8_t **der_crt, size_t *der_crt_size);
 
     uint8_t *der_key = NULL;
     uint8_t *der_crt = NULL;
-    //***$$$***
 
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context ctr_drbg;
     mbedtls_ssl_context ssl;
     mbedtls_ssl_config conf;
 
-    //***$$$***
     mbedtls_x509_crt clicert;
     mbedtls_pk_context pkey;
-    //***$$$***
 
 #if defined(MBEDTLS_DEBUG_C)
     mbedtls_debug_set_threshold(DEBUG_LEVEL);
@@ -184,7 +185,6 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
     mbedtls_ctr_drbg_init(&ctr_drbg);
     mbedtls_entropy_init(&entropy);
 
-    //***$$$***
     mbedtls_x509_crt_init(&clicert);
     mbedtls_pk_init(&pkey);
 
@@ -226,8 +226,6 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
         mbedtls_printf("Unrecognized remote attestation type: %s\n", attestation_type_str);
         return 1;
     }
-
-    //***$$$***
 
     ra_tls_verify_lib = dlopen("libra_tls_verify_dcap_gramine.so", RTLD_LAZY);
     if (!ra_tls_verify_lib)
@@ -318,7 +316,16 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 mbedtls_printf("Cannot parse ISV_PROD_ID!\n");
                 return 1;
             }
-            memcpy(g_expected_isv_prod_id, &isv_prod_id, sizeof(isv_prod_id));
+            // Validate buffer size before memcpy to prevent buffer overflow
+            if (sizeof(g_expected_isv_prod_id) >= sizeof(isv_prod_id))
+            {
+                memcpy(g_expected_isv_prod_id, &isv_prod_id, sizeof(isv_prod_id));
+            }
+            else
+            {
+                mbedtls_printf("Error: Destination buffer too small for ISV_PROD_ID\n");
+                return 1;
+            }
         }
 
         if (!strcmp(d, "0"))
@@ -335,7 +342,16 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 mbedtls_printf("Cannot parse ISV_SVN\n");
                 return 1;
             }
-            memcpy(g_expected_isv_svn, &isv_svn, sizeof(isv_svn));
+            // Validate buffer size before memcpy to prevent buffer overflow
+            if (sizeof(g_expected_isv_svn) >= sizeof(isv_svn))
+            {
+                memcpy(g_expected_isv_svn, &isv_svn, sizeof(isv_svn));
+            }
+            else
+            {
+                mbedtls_printf("Error: Destination buffer too small for ISV_SVN\n");
+                return 1;
+            }
         }
     }
     else if (ra_tls_verify_lib)
@@ -356,8 +372,10 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
         printf("\n  . Seeding the random number generator...");
         //  fflush(stdout);
 
+        // Use strnlen to safely get string length and prevent over-read if not null-terminated
+        size_t pers_len = strnlen(pers, 64);
         ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                    (const unsigned char *)pers, strlen(pers));
+                                    (const unsigned char *)pers, pers_len);
         if (ret != 0)
         {
             mbedtls_printf(" failed\n  ! mbedtls_ctr_drbg_seed returned %d\n", ret);
@@ -366,7 +384,6 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
 
         mbedtls_printf(" ok\n");
 
-        //***$$$***
         if (ra_tls_attest_lib)
         {
             mbedtls_printf(
@@ -404,16 +421,27 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
             mbedtls_printf(" ok\n");
         }
 
-        //***$$$***
         char *ip_address = kii_endpoints[other_player_number];
         const char *colon_pos = strrchr(kii_endpoints[other_player_number], ':');
         size_t ip_length = colon_pos - ip_address;
         if (colon_pos != NULL)
         {
-            strncpy(server_port, colon_pos + 1, 4); // Copy the last 4 characters (port)
-            strncpy(server_ip, ip_address, ip_length);
-            server_port[4] = '\0'; // Null-terminate the string
-            server_ip[ip_length] = '\0';
+            // Validate buffer sizes to prevent overflow
+            if (ip_length >= sizeof(server_ip))
+            {
+                fprintf(stderr, "Error: IP address too long (max %zu characters)\n", sizeof(server_ip) - 1);
+                goto exit;
+            }
+            
+            // Use snprintf instead of strncpy for safe, null-terminated copying
+            int port_len = snprintf(server_port, sizeof(server_port), "%.4s", colon_pos + 1);
+            int ip_len = snprintf(server_ip, sizeof(server_ip), "%.*s", (int)ip_length, ip_address);
+            
+            if (port_len < 0 || ip_len < 0 || port_len >= (int)sizeof(server_port) || ip_len >= (int)sizeof(server_ip))
+            {
+                fprintf(stderr, "Error: Failed to copy IP address or port\n");
+                goto exit;
+            }
         }
         else
         {
@@ -423,16 +451,9 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
         printf("Extracted port at start in client: %s\n", server_port); // Output should be "4444"
         printf("Extracted ip at start in client: %s\n", server_ip);
 
-        //***$$$***
-
         mbedtls_printf("  . Connecting to tcp/%s:%s...", server_ip, server_port);
         fflush(stdout);
 
-        // ret = mbedtls_net_connect(&server_fd, SERVER_NAME, SERVER_PORT, MBEDTLS_NET_PROTO_TCP);
-        // if (ret != 0) {
-        //     mbedtls_printf(" failed\n  ! mbedtls_net_connect returned %d\n\n", ret);
-        //     goto exit;
-        // }
 
         while (1)
         {
@@ -481,14 +502,12 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
         mbedtls_ssl_conf_rng(&conf, mbedtls_ctr_drbg_random, &ctr_drbg);
         mbedtls_ssl_conf_dbg(&conf, my_debug, stdout);
 
-        //***$$$***
         ret = mbedtls_ssl_conf_own_cert(&conf, &clicert, &pkey);
         if (ret != 0)
         {
             mbedtls_printf(" failed\n  ! mbedtls_ssl_conf_own_cert returned %d\n\n", ret);
             goto exit;
         }
-        //***$$$***
 
         ret = mbedtls_ssl_setup(&ssl, &conf);
         if (ret != 0)
@@ -560,7 +579,8 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
 
         fflush(stdout);
 
-        len = sprintf((char *)buf, GET_REQUEST);
+        // Use snprintf instead of sprintf for safe, bounded string copying
+        len = snprintf((char *)buf, sizeof(buf), "%s", GET_REQUEST);
 
         PlayerInfo msg = PLAYER_INFO__INIT;
         msg.kii_job_id = kii_job_id_defined;       // Example initialization
@@ -643,10 +663,6 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
             fprintf(stderr, "Error unpacking incoming message\n");
         }
 
-        // Display the message's fields
-        // printf(" Step 6: Received: mackeyshare_2=%s", secret_message->mackeyshare_2); // required field
-        // printf("  mackeyshare_p=%s", secret_message->mackeyshare_p);
-        // printf("  seeds=%s\n", secret_message->seeds);
         box_out("[6] MAC Key Share + seed received from other player.\n");
 
         // code for packing the macshares and sending over the TLS dconnection again to the server
@@ -684,10 +700,61 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
         }
         // EOC for sending
         printf("Step 6: Sent  Mac and Seed Share to player number %d", other_player_number);
-        // Perform operations
-        // Seed = addHex(Seed, secret_message->seeds);
-        memcpy(Seed, addHex(Seed, secret_message->seeds), KEY_LENGTH);
+        
+        // Validate inputs before Seed memcpy to prevent buffer overflow
+        if (secret_message == NULL || secret_message->seeds == NULL || Seed == NULL)
+        {
+            fprintf(stderr, "Error: Invalid input parameters for Seed memcpy\n");
+            goto exit;
+        }
+        
+        // Call addHex and validate the result
+        char *hex_result = addHex(Seed, secret_message->seeds);
+        if (hex_result == NULL)
+        {
+            fprintf(stderr, "Error: addHex returned NULL\n");
+            goto exit;
+        }
+        
+        // Check the result length (use strnlen for safety to prevent over-read)
+        size_t hex_result_len = strnlen(hex_result, KEY_LENGTH + 1);
+        
+        // Copy only the available bytes, up to KEY_LENGTH, to prevent buffer overflow
+        size_t copy_len = (hex_result_len < KEY_LENGTH) ? hex_result_len : KEY_LENGTH;
+        memcpy(Seed, hex_result, copy_len);
+        
+        // If the result was shorter than KEY_LENGTH, zero-pad the rest of Seed buffer
+        if (hex_result_len < KEY_LENGTH)
+        {
+            memset(Seed + hex_result_len, 0, KEY_LENGTH - hex_result_len);
+        }
+        
+        free(hex_result);  // Free the allocated memory from addHex
         // printf("ADDED SEED IS : %s\n", Seed);
+        
+        // Validate inputs before memcpy to prevent buffer overflow
+        if (secret_message == NULL || 
+            secret_message->mackeyshare_p == NULL || 
+            secret_message->mackeyshare_2 == NULL ||
+            other_player_number < 0 || 
+            other_player_number >= number_of_players ||
+            Player_MAC_Keys_p[other_player_number] == NULL ||
+            Player_MAC_Keys_2[other_player_number] == NULL)
+        {
+            fprintf(stderr, "Error: Invalid input parameters for memcpy\n");
+            goto exit;
+        }
+        
+        // Check source string lengths to prevent buffer overflow
+        size_t mackeyshare_p_len = strnlen(secret_message->mackeyshare_p, KEY_LENGTH + 1);
+        size_t mackeyshare_2_len = strnlen(secret_message->mackeyshare_2, KEY_LENGTH + 1);
+        
+        if (mackeyshare_p_len < KEY_LENGTH || mackeyshare_2_len < KEY_LENGTH)
+        {
+            fprintf(stderr, "Error: MAC key share length is too short (expected %d bytes)\n", KEY_LENGTH);
+            goto exit;
+        }
+        
         memcpy(Player_MAC_Keys_p[other_player_number], secret_message->mackeyshare_p, KEY_LENGTH);
         memcpy(Player_MAC_Keys_2[other_player_number], secret_message->mackeyshare_2, KEY_LENGTH);
         // Free the unpacked message
@@ -700,15 +767,9 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 goto exit;
             }
         }
-        //***$$$***
-        // exit:
-        //***$$$****
     }
 
-    // printf("final ret: %d\n", ret);
-
 exit:
-    // printf("final ret after exit: %d\n", ret);
 #ifdef MBEDTLS_ERROR_C
     if (ret != 0)
     {

@@ -13,13 +13,12 @@ file in the Carbyne Stack
 
 - Abhilash Venkatesh
   [abhilash.venkatesh@datakaveri.org](mailto:abhilash.venkatesh@datakaveri.org)
-- Rohith Vaidhyanathan 
+- Rohith Vaidhyanathan
   [rohith.vaidhyanathan@datakaveri.org](mailto:rohith.vaidhyanathan@datakaveri.org)
-- Sarthak Sharma 
+- Sarthak Sharma
   [sarthak.sharma@datakaveri.org](mailto:sarthak.sharma@datakaveri.org)
 - Srishti Mittal
   [srishti.mittal@datakaveri.org](mailto:srishti.mittal@datakaveri.org)
-
 
 ### Resolve.tech
 

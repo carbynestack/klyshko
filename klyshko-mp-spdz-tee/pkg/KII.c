@@ -36,7 +36,14 @@ static void my_debug(void *ctx, int level, const char *file, int line, const cha
 
 static int parse_hex(const char *hex, void *buffer, size_t buffer_size)
 {
-    if (strlen(hex) != buffer_size * 2)
+    // Use strnlen to safely check string length and prevent over-read if not null-terminated
+    // Use a reasonable maximum (expected length + some margin) to detect non-null-terminated strings
+    size_t max_len = buffer_size * 2 + 10;
+    size_t hex_len = strnlen(hex, max_len);
+    
+    // Check if string length matches expected length
+    // If hex_len equals max_len, the string is longer than expected or not null-terminated
+    if (hex_len != buffer_size * 2 || hex_len == max_len)
         return -1;
 
     for (size_t i = 0; i < buffer_size; i++)
@@ -271,7 +278,16 @@ int main(int argc, char **argv)
                 mbedtls_printf("Cannot parse ISV_PROD_ID!\n");
                 return 1;
             }
-            memcpy(g_expected_isv_prod_id, &isv_prod_id, sizeof(isv_prod_id));
+            // Validate buffer size before memcpy to prevent buffer overflow
+            if (sizeof(g_expected_isv_prod_id) >= sizeof(isv_prod_id))
+            {
+                memcpy(g_expected_isv_prod_id, &isv_prod_id, sizeof(isv_prod_id));
+            }
+            else
+            {
+                mbedtls_printf("Error: Destination buffer too small for ISV_PROD_ID\n");
+                return 1;
+            }
         }
 
         if (!strcmp(argv[4], "0"))
@@ -288,7 +304,16 @@ int main(int argc, char **argv)
                 mbedtls_printf("Cannot parse ISV_SVN\n");
                 return 1;
             }
-            memcpy(g_expected_isv_svn, &isv_svn, sizeof(isv_svn));
+            // Validate buffer size before memcpy to prevent buffer overflow
+            if (sizeof(g_expected_isv_svn) >= sizeof(isv_svn))
+            {
+                memcpy(g_expected_isv_svn, &isv_svn, sizeof(isv_svn));
+            }
+            else
+            {
+                mbedtls_printf("Error: Destination buffer too small for ISV_SVN\n");
+                return 1;
+            }
         }
     }
     else if (ra_tls_verify_lib)
@@ -306,8 +331,10 @@ int main(int argc, char **argv)
     mbedtls_printf("\n  . Seeding the random number generator...");
     fflush(stdout);
 
+    // Use strnlen to safely get string length and prevent over-read if not null-terminated
+    size_t pers_len = strnlen(pers, 64);
     ret = mbedtls_ctr_drbg_seed(&ctr_drbg, mbedtls_entropy_func, &entropy,
-                                (const unsigned char *)pers, strlen(pers));
+                                (const unsigned char *)pers, pers_len);
     if (ret != 0)
     {
         mbedtls_printf(" failed\n  ! mbedtls_ctr_drbg_seed returned %d\n", ret);
