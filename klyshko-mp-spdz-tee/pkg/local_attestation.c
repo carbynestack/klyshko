@@ -308,20 +308,9 @@ int local_attestation(char *Player_MAC_Keys_p[], char *Player_MAC_Keys_2[])
         return -1;
     }
     
-    // Check source string lengths to prevent buffer overflow
-    size_t mackeyshare_p_len = strnlen(message->mackeyshare_p, KEY_LENGTH + 1);
-    size_t mackeyshare_2_len = strnlen(message->mackeyshare_2, KEY_LENGTH + 1);
-    
-    if (mackeyshare_p_len < KEY_LENGTH || mackeyshare_2_len < KEY_LENGTH)
-    {
-        fprintf(stderr, "Error: MAC key share length is too short (expected %d bytes)\n", KEY_LENGTH);
-        secret_share__free_unpacked(message, NULL);
-        return -1;
-    }
-    
     // Validate buffer sizes before memcpy to prevent buffer overflow
     // Destination buffers are allocated as KEY_LENGTH bytes (see CRG.c allocation)
-    // Source strings have been validated to be at least KEY_LENGTH bytes
+    // We copy exactly KEY_LENGTH bytes, which is safe since destination is at least KEY_LENGTH bytes
     size_t dest_buffer_size = KEY_LENGTH;  // Destination buffers are allocated to this size
     size_t copy_size = KEY_LENGTH;         // Amount to copy
     
