@@ -68,3 +68,19 @@ EXTERN int base_port;
 #define ISV_ID_BUF_SIZE 2             // 2-byte ISV_PROD_ID and ISV_SVN buffers
 #define ISV_ID_SRC_SIZE 2             // Source size for ISV_PROD_ID and ISV_SVN (uint16_t = 2 bytes)
 #define SEED_BUF_SIZE 17               // Seed buffer size (16 bytes data + 1 terminator)
+
+/**
+ * Safe memcpy wrapper with explicit bounds checking
+ * Returns 0 on success, -1 on error
+ * This function ensures destination buffer is large enough before copying
+ */
+static inline int safe_memcpy(void *dst, size_t dst_size, const void *src, size_t src_size)
+{
+    if (!dst || !src)
+        return -1;
+    if (src_size > dst_size)
+        return -1;
+    
+    memcpy(dst, src, src_size);
+    return 0;
+}

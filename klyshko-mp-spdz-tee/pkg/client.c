@@ -316,16 +316,10 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 mbedtls_printf("Cannot parse ISV_PROD_ID!\n");
                 return 1;
             }
-            // Validate buffer size before memcpy to prevent buffer overflow
-            // Use compile-time constants for static analysis
-            if (ISV_ID_BUF_SIZE >= ISV_ID_SRC_SIZE)
+            // Use safe_memcpy wrapper with explicit bounds checking
+            if (safe_memcpy(g_expected_isv_prod_id, ISV_ID_BUF_SIZE, &isv_prod_id, ISV_ID_SRC_SIZE) != 0)
             {
-                // Safe to copy: destination buffer (ISV_ID_BUF_SIZE) >= source size (ISV_ID_SRC_SIZE)
-                memcpy(g_expected_isv_prod_id, &isv_prod_id, ISV_ID_SRC_SIZE);
-            }
-            else
-            {
-                mbedtls_printf("Error: Destination buffer too small for ISV_PROD_ID\n");
+                mbedtls_printf("Error: Failed to copy ISV_PROD_ID (buffer overflow or invalid parameters)\n");
                 return 1;
             }
         }
@@ -344,16 +338,10 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 mbedtls_printf("Cannot parse ISV_SVN\n");
                 return 1;
             }
-            // Validate buffer size before memcpy to prevent buffer overflow
-            // Use compile-time constants for static analysis
-            if (ISV_ID_BUF_SIZE >= ISV_ID_SRC_SIZE)
+            // Use safe_memcpy wrapper with explicit bounds checking
+            if (safe_memcpy(g_expected_isv_svn, ISV_ID_BUF_SIZE, &isv_svn, ISV_ID_SRC_SIZE) != 0)
             {
-                // Safe to copy: destination buffer (ISV_ID_BUF_SIZE) >= source size (ISV_ID_SRC_SIZE)
-                memcpy(g_expected_isv_svn, &isv_svn, ISV_ID_SRC_SIZE);
-            }
-            else
-            {
-                mbedtls_printf("Error: Destination buffer too small for ISV_SVN\n");
+                mbedtls_printf("Error: Failed to copy ISV_SVN (buffer overflow or invalid parameters)\n");
                 return 1;
             }
         }
@@ -737,7 +725,14 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
         }
         
         // Safe to copy - destination buffer is at least as large as copy size
-        memcpy(Seed, hex_result, copy_len);
+        // Use safe_memcpy wrapper with explicit bounds checking
+        // Seed buffer must be at least KEY_LENGTH bytes
+        if (safe_memcpy(Seed, KEY_LENGTH, hex_result, copy_len) != 0)
+        {
+            fprintf(stderr, "Error: Failed to copy Seed (buffer overflow or invalid parameters)\n");
+            free(hex_result);
+            goto exit;
+        }
         
         // If the result was shorter than KEY_LENGTH, zero-pad the rest of Seed buffer
         if (hex_result_len < KEY_LENGTH)
@@ -761,28 +756,19 @@ int ssl_client_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
             goto exit;
         }
         
-        // Validate buffer sizes before memcpy to prevent buffer overflow
-        // Use compile-time constant MAC_KEY_BUF_SIZE (equals KEY_LENGTH) for static analysis
+        // Use safe_memcpy wrapper with explicit bounds checking
         // Destination buffers are allocated as MAC_KEY_BUF_SIZE bytes (see CRG.c allocation)
-        if (Player_MAC_Keys_p[other_player_number] != NULL)
+        if (safe_memcpy(Player_MAC_Keys_p[other_player_number], MAC_KEY_BUF_SIZE,
+                       secret_message->mackeyshare_p, MAC_KEY_BUF_SIZE) != 0)
         {
-            // Safe to copy: destination buffer is MAC_KEY_BUF_SIZE bytes, copying MAC_KEY_BUF_SIZE bytes
-            memcpy(Player_MAC_Keys_p[other_player_number], secret_message->mackeyshare_p, MAC_KEY_BUF_SIZE);
-        }
-        else
-        {
-            fprintf(stderr, "Error: Invalid destination buffer for first MAC key memcpy\n");
+            fprintf(stderr, "Error: Failed to copy MAC key share p (buffer overflow or invalid parameters)\n");
             goto exit;
         }
         
-        if (Player_MAC_Keys_2[other_player_number] != NULL)
+        if (safe_memcpy(Player_MAC_Keys_2[other_player_number], MAC_KEY_BUF_SIZE,
+                       secret_message->mackeyshare_2, MAC_KEY_BUF_SIZE) != 0)
         {
-            // Safe to copy: destination buffer is MAC_KEY_BUF_SIZE bytes, copying MAC_KEY_BUF_SIZE bytes
-            memcpy(Player_MAC_Keys_2[other_player_number], secret_message->mackeyshare_2, MAC_KEY_BUF_SIZE);
-        }
-        else
-        {
-            fprintf(stderr, "Error: Invalid destination buffer for second MAC key memcpy\n");
+            fprintf(stderr, "Error: Failed to copy MAC key share 2 (buffer overflow or invalid parameters)\n");
             goto exit;
         }
         // Free the unpacked message

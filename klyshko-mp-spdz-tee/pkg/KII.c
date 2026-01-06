@@ -278,16 +278,10 @@ int main(int argc, char **argv)
                 mbedtls_printf("Cannot parse ISV_PROD_ID!\n");
                 return 1;
             }
-            // Validate buffer size before memcpy to prevent buffer overflow
-            // Use compile-time constants for static analysis
-            if (ISV_ID_BUF_SIZE >= ISV_ID_SRC_SIZE)
+            // Use safe_memcpy wrapper with explicit bounds checking
+            if (safe_memcpy(g_expected_isv_prod_id, ISV_ID_BUF_SIZE, &isv_prod_id, ISV_ID_SRC_SIZE) != 0)
             {
-                // Safe to copy: destination buffer (ISV_ID_BUF_SIZE) >= source size (ISV_ID_SRC_SIZE)
-                memcpy(g_expected_isv_prod_id, &isv_prod_id, ISV_ID_SRC_SIZE);
-            }
-            else
-            {
-                mbedtls_printf("Error: Destination buffer too small for ISV_PROD_ID\n");
+                mbedtls_printf("Error: Failed to copy ISV_PROD_ID (buffer overflow or invalid parameters)\n");
                 return 1;
             }
         }
@@ -306,16 +300,10 @@ int main(int argc, char **argv)
                 mbedtls_printf("Cannot parse ISV_SVN\n");
                 return 1;
             }
-            // Validate buffer size before memcpy to prevent buffer overflow
-            // Use compile-time constants for static analysis
-            if (ISV_ID_BUF_SIZE >= ISV_ID_SRC_SIZE)
+            // Use safe_memcpy wrapper with explicit bounds checking
+            if (safe_memcpy(g_expected_isv_svn, ISV_ID_BUF_SIZE, &isv_svn, ISV_ID_SRC_SIZE) != 0)
             {
-                // Safe to copy: destination buffer (ISV_ID_BUF_SIZE) >= source size (ISV_ID_SRC_SIZE)
-                memcpy(g_expected_isv_svn, &isv_svn, ISV_ID_SRC_SIZE);
-            }
-            else
-            {
-                mbedtls_printf("Error: Destination buffer too small for ISV_SVN\n");
+                mbedtls_printf("Error: Failed to copy ISV_SVN (buffer overflow or invalid parameters)\n");
                 return 1;
             }
         }

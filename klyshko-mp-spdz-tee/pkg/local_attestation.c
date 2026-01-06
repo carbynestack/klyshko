@@ -308,29 +308,20 @@ int local_attestation(char *Player_MAC_Keys_p[], char *Player_MAC_Keys_2[])
         return -1;
     }
     
-    // Validate buffer sizes before memcpy to prevent buffer overflow
-    // Use compile-time constant MAC_KEY_BUF_SIZE (equals KEY_LENGTH) for static analysis
+    // Use safe_memcpy wrapper with explicit bounds checking
     // Destination buffers are allocated as MAC_KEY_BUF_SIZE bytes (see CRG.c allocation)
-    if (Player_MAC_Keys_p[player_number_defined] != NULL)
+    if (safe_memcpy(Player_MAC_Keys_p[player_number_defined], MAC_KEY_BUF_SIZE,
+                   message->mackeyshare_p, MAC_KEY_BUF_SIZE) != 0)
     {
-        // Safe to copy: destination buffer is MAC_KEY_BUF_SIZE bytes, copying MAC_KEY_BUF_SIZE bytes
-        memcpy(Player_MAC_Keys_p[player_number_defined], message->mackeyshare_p, MAC_KEY_BUF_SIZE);
-    }
-    else
-    {
-        fprintf(stderr, "Error: Invalid destination buffer for first MAC key memcpy\n");
+        fprintf(stderr, "Error: Failed to copy MAC key share p (buffer overflow or invalid parameters)\n");
         secret_share__free_unpacked(message, NULL);
         return -1;
     }
     
-    if (Player_MAC_Keys_2[player_number_defined] != NULL)
+    if (safe_memcpy(Player_MAC_Keys_2[player_number_defined], MAC_KEY_BUF_SIZE,
+                   message->mackeyshare_2, MAC_KEY_BUF_SIZE) != 0)
     {
-        // Safe to copy: destination buffer is MAC_KEY_BUF_SIZE bytes, copying MAC_KEY_BUF_SIZE bytes
-        memcpy(Player_MAC_Keys_2[player_number_defined], message->mackeyshare_2, MAC_KEY_BUF_SIZE);
-    }
-    else
-    {
-        fprintf(stderr, "Error: Invalid destination buffer for second MAC key memcpy\n");
+        fprintf(stderr, "Error: Failed to copy MAC key share 2 (buffer overflow or invalid parameters)\n");
         secret_share__free_unpacked(message, NULL);
         return -1;
     }
