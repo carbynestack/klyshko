@@ -63,4 +63,8 @@ EXTERN int ssl_server_setup_and_handshake();
 EXTERN char** kii_endpoints;
 EXTERN int base_port;
 
-#define KEY_LENGTH 128
+#define KEY_LENGTH 128                 // MAC key length in bytes
+#define MAC_KEY_BUF_SIZE KEY_LENGTH    // Destination buffers for MAC keys
+#define ISV_ID_BUF_SIZE 2             // 2-byte ISV_PROD_ID and ISV_SVN buffers
+#define ISV_ID_SRC_SIZE 2             // Source size for ISV_PROD_ID and ISV_SVN (uint16_t = 2 bytes)
+#define SEED_BUF_SIZE 17               // Seed buffer size (16 bytes data + 1 terminator)

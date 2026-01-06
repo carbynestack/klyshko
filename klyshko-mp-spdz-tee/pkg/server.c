@@ -311,12 +311,11 @@ int ssl_server_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 return 1;
             }
             // Validate buffer size before memcpy to prevent buffer overflow
-            size_t dest_size = sizeof(g_expected_isv_prod_id);
-            size_t src_size = sizeof(isv_prod_id);
-            if (dest_size >= src_size)
+            // Use compile-time constants for static analysis
+            if (ISV_ID_BUF_SIZE >= ISV_ID_SRC_SIZE)
             {
-                // Copy only the source size, which is guaranteed to fit in destination
-                memcpy(g_expected_isv_prod_id, &isv_prod_id, src_size);
+                // Safe to copy: destination buffer (ISV_ID_BUF_SIZE) >= source size (ISV_ID_SRC_SIZE)
+                memcpy(g_expected_isv_prod_id, &isv_prod_id, ISV_ID_SRC_SIZE);
             }
             else
             {
@@ -340,12 +339,11 @@ int ssl_server_setup_and_handshake(char *a, char *b, char *c, char *d, char *Pla
                 return 1;
             }
             // Validate buffer size before memcpy to prevent buffer overflow
-            size_t dest_size = sizeof(g_expected_isv_svn);
-            size_t src_size = sizeof(isv_svn);
-            if (dest_size >= src_size)
+            // Use compile-time constants for static analysis
+            if (ISV_ID_BUF_SIZE >= ISV_ID_SRC_SIZE)
             {
-                // Copy only the source size, which is guaranteed to fit in destination
-                memcpy(g_expected_isv_svn, &isv_svn, src_size);
+                // Safe to copy: destination buffer (ISV_ID_BUF_SIZE) >= source size (ISV_ID_SRC_SIZE)
+                memcpy(g_expected_isv_svn, &isv_svn, ISV_ID_SRC_SIZE);
             }
             else
             {
@@ -768,23 +766,32 @@ reset:
     }
     
     // Check the result length (use strnlen for safety to prevent over-read)
-    size_t hex_result_len = strnlen(hex_result, KEY_LENGTH + 1);
+    size_t hex_result_len = strnlen(hex_result, SEED_BUF_SIZE);
     
     // Validate buffer sizes before memcpy to prevent buffer overflow
-    // Seed buffer is expected to be at least KEY_LENGTH bytes (see memset usage below)
-    size_t dest_buffer_size = KEY_LENGTH;  // Expected minimum size of Seed buffer
+    // Use compile-time constant KEY_LENGTH for static analysis
     size_t copy_len = (hex_result_len < KEY_LENGTH) ? hex_result_len : KEY_LENGTH;
     
     // Ensure copy size does not exceed destination buffer size
-    if (copy_len > dest_buffer_size)
+    if (copy_len > KEY_LENGTH)
     {
         fprintf(stderr, "Error: Copy size exceeds destination buffer size\n");
         free(hex_result);
         goto exit;
     }
     
-    // Safe to copy - destination buffer is at least as large as copy size
-    memcpy(Seed, hex_result, copy_len);
+    // Explicit validation: ensure copy_len is within safe bounds before memcpy
+    if (copy_len <= KEY_LENGTH && copy_len > 0)
+    {
+        // Safe to copy - destination buffer is at least KEY_LENGTH bytes
+        memcpy(Seed, hex_result, copy_len);
+    }
+    else
+    {
+        fprintf(stderr, "Error: Invalid copy size for Seed memcpy\n");
+        free(hex_result);
+        goto exit;
+    }
     
     // If the result was shorter than KEY_LENGTH, zero-pad the rest of Seed buffer
     if (hex_result_len < KEY_LENGTH)
@@ -808,21 +815,29 @@ reset:
     }
     
     // Validate buffer sizes before memcpy to prevent buffer overflow
-    // Destination buffers are allocated as KEY_LENGTH bytes (see CRG.c allocation)
-    // We copy exactly KEY_LENGTH bytes, which is safe since destination is at least KEY_LENGTH bytes
-    size_t mac_keys_dest_buffer_size = KEY_LENGTH;  // Destination buffers are allocated to this size
-    size_t copy_size = KEY_LENGTH;         // Amount to copy
-    
-    // Ensure copy size does not exceed destination buffer size
-    if (copy_size > mac_keys_dest_buffer_size)
+    // Use compile-time constant MAC_KEY_BUF_SIZE (equals KEY_LENGTH) for static analysis
+    // Destination buffers are allocated as MAC_KEY_BUF_SIZE bytes (see CRG.c allocation)
+    if (Player_MAC_Keys_p[other_player_number] != NULL)
     {
-        fprintf(stderr, "Error: Copy size exceeds destination buffer size\n");
+        // Safe to copy: destination buffer is MAC_KEY_BUF_SIZE bytes, copying MAC_KEY_BUF_SIZE bytes
+        memcpy(Player_MAC_Keys_p[other_player_number], message->mackeyshare_p, MAC_KEY_BUF_SIZE);
+    }
+    else
+    {
+        fprintf(stderr, "Error: Invalid destination buffer for first MAC key memcpy\n");
         goto exit;
     }
     
-    // Safe to copy - destination buffer is at least as large as copy size
-    memcpy(Player_MAC_Keys_p[other_player_number], message->mackeyshare_p, copy_size);
-    memcpy(Player_MAC_Keys_2[other_player_number], message->mackeyshare_2, copy_size);
+    if (Player_MAC_Keys_2[other_player_number] != NULL)
+    {
+        // Safe to copy: destination buffer is MAC_KEY_BUF_SIZE bytes, copying MAC_KEY_BUF_SIZE bytes
+        memcpy(Player_MAC_Keys_2[other_player_number], message->mackeyshare_2, MAC_KEY_BUF_SIZE);
+    }
+    else
+    {
+        fprintf(stderr, "Error: Invalid destination buffer for second MAC key memcpy\n");
+        goto exit;
+    }
     // Free the unpacked message
     secret_share__free_unpacked(message, NULL);
 

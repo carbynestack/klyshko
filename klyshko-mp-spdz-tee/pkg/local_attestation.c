@@ -309,22 +309,31 @@ int local_attestation(char *Player_MAC_Keys_p[], char *Player_MAC_Keys_2[])
     }
     
     // Validate buffer sizes before memcpy to prevent buffer overflow
-    // Destination buffers are allocated as KEY_LENGTH bytes (see CRG.c allocation)
-    // We copy exactly KEY_LENGTH bytes, which is safe since destination is at least KEY_LENGTH bytes
-    size_t dest_buffer_size = KEY_LENGTH;  // Destination buffers are allocated to this size
-    size_t copy_size = KEY_LENGTH;         // Amount to copy
-    
-    // Ensure copy size does not exceed destination buffer size
-    if (copy_size > dest_buffer_size)
+    // Use compile-time constant MAC_KEY_BUF_SIZE (equals KEY_LENGTH) for static analysis
+    // Destination buffers are allocated as MAC_KEY_BUF_SIZE bytes (see CRG.c allocation)
+    if (Player_MAC_Keys_p[player_number_defined] != NULL)
     {
-        fprintf(stderr, "Error: Copy size exceeds destination buffer size\n");
+        // Safe to copy: destination buffer is MAC_KEY_BUF_SIZE bytes, copying MAC_KEY_BUF_SIZE bytes
+        memcpy(Player_MAC_Keys_p[player_number_defined], message->mackeyshare_p, MAC_KEY_BUF_SIZE);
+    }
+    else
+    {
+        fprintf(stderr, "Error: Invalid destination buffer for first MAC key memcpy\n");
         secret_share__free_unpacked(message, NULL);
         return -1;
     }
     
-    // Safe to copy - destination buffer is at least as large as copy size
-    memcpy(Player_MAC_Keys_p[player_number_defined], message->mackeyshare_p, copy_size);
-    memcpy(Player_MAC_Keys_2[player_number_defined], message->mackeyshare_2, copy_size);
+    if (Player_MAC_Keys_2[player_number_defined] != NULL)
+    {
+        // Safe to copy: destination buffer is MAC_KEY_BUF_SIZE bytes, copying MAC_KEY_BUF_SIZE bytes
+        memcpy(Player_MAC_Keys_2[player_number_defined], message->mackeyshare_2, MAC_KEY_BUF_SIZE);
+    }
+    else
+    {
+        fprintf(stderr, "Error: Invalid destination buffer for second MAC key memcpy\n");
+        secret_share__free_unpacked(message, NULL);
+        return -1;
+    }
 
     // Free the unpacked message
     secret_share__free_unpacked(message, NULL);

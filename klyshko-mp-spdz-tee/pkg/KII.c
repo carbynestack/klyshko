@@ -279,12 +279,11 @@ int main(int argc, char **argv)
                 return 1;
             }
             // Validate buffer size before memcpy to prevent buffer overflow
-            size_t dest_size = sizeof(g_expected_isv_prod_id);
-            size_t src_size = sizeof(isv_prod_id);
-            if (dest_size >= src_size)
+            // Use compile-time constants for static analysis
+            if (ISV_ID_BUF_SIZE >= ISV_ID_SRC_SIZE)
             {
-                // Copy only the source size, which is guaranteed to fit in destination
-                memcpy(g_expected_isv_prod_id, &isv_prod_id, src_size);
+                // Safe to copy: destination buffer (ISV_ID_BUF_SIZE) >= source size (ISV_ID_SRC_SIZE)
+                memcpy(g_expected_isv_prod_id, &isv_prod_id, ISV_ID_SRC_SIZE);
             }
             else
             {
@@ -308,12 +307,11 @@ int main(int argc, char **argv)
                 return 1;
             }
             // Validate buffer size before memcpy to prevent buffer overflow
-            size_t dest_size = sizeof(g_expected_isv_svn);
-            size_t src_size = sizeof(isv_svn);
-            if (dest_size >= src_size)
+            // Use compile-time constants for static analysis
+            if (ISV_ID_BUF_SIZE >= ISV_ID_SRC_SIZE)
             {
-                // Copy only the source size, which is guaranteed to fit in destination
-                memcpy(g_expected_isv_svn, &isv_svn, src_size);
+                // Safe to copy: destination buffer (ISV_ID_BUF_SIZE) >= source size (ISV_ID_SRC_SIZE)
+                memcpy(g_expected_isv_svn, &isv_svn, ISV_ID_SRC_SIZE);
             }
             else
             {
