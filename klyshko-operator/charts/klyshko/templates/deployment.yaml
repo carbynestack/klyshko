@@ -44,6 +44,9 @@ spec:
             - --zap-log-level=info
             - --provisioner-image={{ printf "%s/%s:%s" .Values.provisioner.image.registry .Values.provisioner.image.repository .Values.provisioner.image.tag }}
             - --etcd-endpoint={{ .Values.controller.etcdEndpoint }}
+            {{- if .Values.controller.sgx.enabled }}
+            - --sgx-enabled
+            {{- end }}
           command:
             - /manager
           image:  "{{ .Values.controller.image.registry }}/{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag }}"

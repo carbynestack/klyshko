@@ -49,6 +49,7 @@ var (
 	etcdDialTimeout      = flag.Int("etcd-dial-timeout", 5, "The timeout (in seconds) for failing to establish a connection to the etcd service.")
 	castorURL            = flag.String("castor-url", "http://cs-castor.default.svc.cluster.local:10100", "The base url of the castor service used to upload generated tuples.")
 	provisionerImage     = flag.String("provisioner-image", "ghcr.io/carbynestack/klyshko-provisioner:latest", "The name of the provisioner image.")
+	sgxEnabled           = flag.Bool("sgx-enabled", false, "Enable SGX support for tuple generation. When enabled, injects SGX resources, tolerations, and volume mounts.")
 )
 
 func main() {
@@ -105,6 +106,7 @@ func main() {
 		Scheme:           mgr.GetScheme(),
 		EtcdClient:       etcdClient,
 		ProvisionerImage: *provisionerImage,
+		SgxEnabled:       *sgxEnabled,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TupleGenerationTask")
 		os.Exit(1)
