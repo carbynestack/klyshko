@@ -99,15 +99,7 @@ The same enclave-key.pem must be present in both the VCPs, else the remote attes
 For more information refer the [Gramine Docs](https://gramine.readthedocs.io/en/stable/python/writing-sgx-sign-plugins.html)
 
 
-> **Note**: In kii-run.sh, the flags RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE and RA_TLS_ALLOW_OUTDATED_TCB_INSECURE have been enabled for development and testing purposes.
-
-For production deployments, set these flags to 0 before building the image.
-
-```
-export RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE=0
-export RA_TLS_ALLOW_OUTDATED_TCB_INSECURE=0
-```
-
+> **Note**: In kii-run.sh, the flags RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE and RA_TLS_ALLOW_OUTDATED_TCB_INSECURE have been disabled by default.
 
 ## Step 3: Bringing Up Carbyne Stack
 

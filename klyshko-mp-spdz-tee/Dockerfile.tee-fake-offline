@@ -112,6 +112,11 @@ COPY enclave-key.pem /root/.config/gramine/enclave-key.pem
 COPY . .
 RUN chmod +x kii-run.sh
 
+# Create placeholder MAC key share files for Gramine manifest build.
+RUN mkdir -p etc/kii/secret-params && \
+    echo "0" > etc/kii/secret-params/mac_key_share_p && \
+    echo "0" > etc/kii/secret-params/mac_key_share_2
+
 RUN make app RA_TYPE=dcap
 RUN output=$(gramine-sgx-sigstruct-view server.sig)
 
