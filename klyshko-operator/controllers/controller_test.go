@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022-2024 - for information on the respective copyright owner
+Copyright (c) 2022-2026 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -51,6 +51,12 @@ const (
 	TupleThreshold                   = 50000
 	TuplesPerJob                     = 100000
 	SchedulerTTLSecondsAfterFinished = 5
+	// DefaultMaxUploadTuples matches TuplesPerJob so that existing tests exercise the single-chunk
+	// (backward-compatible) code path where NumberOfChunks == 1.
+	DefaultMaxUploadTuples = TuplesPerJob
+	// SmallMaxUploadTuples is less than TuplesPerJob, producing NumberOfChunks == 2 in tests that
+	// exercise the multi-chunk upload path.
+	SmallMaxUploadTuples = TuplesPerJob / 2
 )
 
 type vcp struct {
@@ -170,7 +176,7 @@ type Controller interface {
 	SetupWithManager(manager.Manager) error
 }
 
-func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *clientv3.Client, castorURL string) error {
+func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *clientv3.Client, castorURL string, maxUploadTuples int) error {
 	k8sManager, err := ctrl.NewManager(vcp.cfg, ctrl.Options{
 		Scheme:             scheme.Scheme,
 		MetricsBindAddress: "0",                                             // Avoid colliding metrics servers by disabling
@@ -182,12 +188,13 @@ func (vcp *vcp) setupControllers(ctx context.Context, vcpID int, etcdClient *cli
 	castorClient := castor.NewClient(castorURL)
 	controllers := []Controller{
 		NewTupleGenerationJobReconciler(
-			k8sManager.GetClient(), k8sManager.GetScheme(), etcdClient, castorClient, k8sManager.GetLogger()),
+			k8sManager.GetClient(), k8sManager.GetScheme(), etcdClient, castorClient, k8sManager.GetLogger(), maxUploadTuples),
 		&TupleGenerationTaskReconciler{ // TODO Replace with constructors
 			Client:           k8sManager.GetClient(),
 			Scheme:           k8sManager.GetScheme(),
 			EtcdClient:       etcdClient,
 			ProvisionerImage: "carbynestack/klyshko-provisioner:1.0.0-SNAPSHOT",
+			MaxUploadTuples:  maxUploadTuples,
 		},
 	}
 	if vcpID == 0 {
@@ -216,7 +223,7 @@ type vc struct {
 	ectd *envtest.Etcd
 }
 
-func setupVC(ctx context.Context, numberOfVCPs int) (*vc, error) {
+func setupVC(ctx context.Context, numberOfVCPs int, maxUploadTuples int) (*vc, error) {
 	vc := vc{}
 	for i := 0; i < numberOfVCPs; i++ {
 		vcp, err := setupVCP()
@@ -238,7 +245,7 @@ func setupVC(ctx context.Context, numberOfVCPs int) (*vc, error) {
 			Endpoints:   []string{vc.ectd.URL.String()},
 			DialTimeout: Timeout,
 		})
-		err = vcp.setupControllers(ctx, i, etcdClient, "http://cs-castor.default.svc.cluster.local:10100")
+		err = vcp.setupControllers(ctx, i, etcdClient, "http://cs-castor.default.svc.cluster.local:10100", maxUploadTuples)
 		if err != nil {
 			return nil, err
 		}
@@ -300,7 +307,7 @@ var _ = Describe("In case of shortage of tuples", func() {
 			httpmock.Activate()
 			setupCastorServiceResponders(0, ConflictingTupleType)
 			var err error
-			vc, err = setupVC(ctx, NumberOfVCPs)
+			vc, err = setupVC(ctx, NumberOfVCPs, DefaultMaxUploadTuples)
 			Expect(err).NotTo(HaveOccurred())
 
 			scheduler = createScheduler(ctx, vc)
@@ -352,7 +359,7 @@ var _ = Describe("Generating tuples", func() {
 			httpmock.Activate()
 			setupCastorServiceResponders(0, ValidTupleType)
 			var err error
-			vc, err = setupVC(ctx, NumberOfVCPs)
+			vc, err = setupVC(ctx, NumberOfVCPs, DefaultMaxUploadTuples)
 			Expect(err).NotTo(HaveOccurred())
 
 			scheduler = createScheduler(ctx, vc)
@@ -491,6 +498,123 @@ var _ = Describe("Generating tuples", func() {
 							return apierrors.IsNotFound(vc.vcps[j].k8sClient.Get(ctx, key, proxyTask))
 						}, Timeout, PollingInterval).Should(BeTrue())
 					}
+				}
+			})
+		})
+	})
+})
+
+var _ = Describe("Generating tuples with chunked upload", func() {
+
+	When("a scheduler is deployed and MaxUploadTuples is smaller than TuplesPerJob", func() {
+
+		var (
+			ctx                context.Context
+			cancel             context.CancelFunc
+			vc                 *vc
+			scheduler          *klyshkov1alpha1.TupleGenerationScheduler
+			jobs               []klyshkov1alpha1.TupleGenerationJob
+			localTasksByVCP    []klyshkov1alpha1.TupleGenerationTask
+			generatorPodsByVCP []v1.Pod
+		)
+
+		BeforeEach(func() {
+			ctx, cancel = context.WithCancel(context.TODO())
+			httpmock.Activate()
+			setupCastorServiceResponders(0, ValidTupleType)
+			var err error
+			// Use SmallMaxUploadTuples so that TuplesPerJob / SmallMaxUploadTuples == 2 chunks
+			vc, err = setupVC(ctx, NumberOfVCPs, SmallMaxUploadTuples)
+			Expect(err).NotTo(HaveOccurred())
+
+			scheduler = createScheduler(ctx, vc)
+			jobs = ensureJobCreatedOnEachVcp(ctx, vc, scheduler)
+
+			setupCastorServiceResponders(math.MaxInt32, ValidTupleType)
+
+			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs, klyshkov1alpha1.TaskPreparing)
+
+			services := ensureServiceCreatedOnEachVcp(ctx, vc, localTasksByVCP)
+			for i, service := range services {
+				service.Status.LoadBalancer.Ingress = make([]v1.LoadBalancerIngress, 1)
+				service.Status.LoadBalancer.Ingress[0] = v1.LoadBalancerIngress{
+					IP: fmt.Sprintf("172.0.0.%d", i),
+				}
+				Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &service)).Should(Succeed())
+			}
+
+			localTasksByVCP = ensureTasksCreatedOnEachVcp(ctx, vc, scheduler, jobs, klyshkov1alpha1.TaskGenerating)
+			generatorPodsByVCP = ensureGeneratorPodsCreatedOnEachVcp(ctx, vc, localTasksByVCP)
+			ensureJobState(ctx, vc, scheduler, uuid.MustParse(jobs[0].Spec.ID), klyshkov1alpha1.JobRunning)
+		})
+
+		AfterEach(func() {
+			cancel()
+			err := vc.teardown()
+			Expect(err).NotTo(HaveOccurred())
+			httpmock.DeactivateAndReset()
+		})
+
+		Context("and the generator pod succeeds", func() {
+			It("activates each derived chunk ID on every VCP", func() {
+				for i, pod := range generatorPodsByVCP {
+					pod.Status.Phase = v1.PodSucceeded
+					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
+
+				provisionerPodsByVCP := ensureProvisionerPodsCreatedOnEachVcp(ctx, vc, jobs, localTasksByVCP)
+
+				for i, pod := range provisionerPodsByVCP {
+					pod.Status.Phase = v1.PodSucceeded
+					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
+
+				// With SmallMaxUploadTuples = TuplesPerJob/2, NumberOfChunks == 2.
+				// Neither chunk ID is the raw job ID; both are derived via DeriveChunkID.
+				jobID := uuid.MustParse(jobs[0].Spec.ID)
+				numChunks := NumberOfChunks(TuplesPerJob, SmallMaxUploadTuples)
+				Expect(numChunks).To(Equal(2))
+
+				for piece := 0; piece < numChunks; piece++ {
+					chunkID := DeriveChunkID(jobID, piece, numChunks)
+					activationURL := fmt.Sprintf(
+						"PUT http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s",
+						chunkID,
+					)
+					Eventually(func() bool {
+						info := httpmock.GetCallCountInfo()
+						return info[activationURL] == NumberOfVCPs
+					}, Timeout, PollingInterval).Should(BeTrue())
+				}
+
+				// Verify the original job ID is NOT used for activation when N > 1
+				rawJobURL := fmt.Sprintf(
+					"PUT http://cs-castor.default.svc.cluster.local:10100/intra-vcp/tuple-chunks/activate/%s",
+					jobs[0].Spec.ID,
+				)
+				info := httpmock.GetCallCountInfo()
+				Expect(info[rawJobURL]).To(Equal(0))
+			})
+		})
+
+		Context("and the provisioner pod also receives the correct env vars for chunking", func() {
+			It("injects KII_TUPLES_PER_JOB and KII_MAX_UPLOAD_TUPLES into the provisioner pod", func() {
+				for i, pod := range generatorPodsByVCP {
+					pod.Status.Phase = v1.PodSucceeded
+					Expect(vc.vcps[i].k8sClient.Status().Update(ctx, &pod)).Should(Succeed())
+				}
+
+				provisionerPods := ensureProvisionerPodsCreatedOnEachVcp(ctx, vc, jobs, localTasksByVCP)
+
+				for _, pod := range provisionerPods {
+					envMap := make(map[string]string)
+					for _, e := range pod.Spec.Containers[0].Env {
+						envMap[e.Name] = e.Value
+					}
+					Expect(envMap).To(HaveKey("KII_TUPLES_PER_JOB"))
+					Expect(envMap).To(HaveKey("KII_MAX_UPLOAD_TUPLES"))
+					Expect(envMap["KII_TUPLES_PER_JOB"]).To(Equal(strconv.Itoa(TuplesPerJob)))
+					Expect(envMap["KII_MAX_UPLOAD_TUPLES"]).To(Equal(strconv.Itoa(SmallMaxUploadTuples)))
 				}
 			})
 		})

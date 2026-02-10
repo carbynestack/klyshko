@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022-2023 - for information on the respective copyright owner
+Copyright (c) 2022-2026 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -44,16 +44,21 @@ type TupleGenerationJobReconciler struct {
 	EtcdClient   *clientv3.Client
 	CastorClient *castor.Client
 	Logger       logr.Logger
+	// MaxUploadTuples is the maximum number of tuples per single Castor upload. It must match the
+	// value configured in the TupleGenerationTaskReconciler so that the chunk IDs derived here
+	// agree with those produced by the provisioner.
+	MaxUploadTuples int
 }
 
 // NewTupleGenerationJobReconciler creates a TupleGenerationJobReconciler.
-func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client, castorClient *castor.Client, logger logr.Logger) *TupleGenerationJobReconciler {
+func NewTupleGenerationJobReconciler(client client.Client, scheme *runtime.Scheme, etcdClient *clientv3.Client, castorClient *castor.Client, logger logr.Logger, maxUploadTuples int) *TupleGenerationJobReconciler {
 	r := &TupleGenerationJobReconciler{
-		Client:       client,
-		Scheme:       scheme,
-		EtcdClient:   etcdClient,
-		CastorClient: castorClient,
-		Logger:       logger,
+		Client:          client,
+		Scheme:          scheme,
+		EtcdClient:      etcdClient,
+		CastorClient:    castorClient,
+		Logger:          logger,
+		MaxUploadTuples: maxUploadTuples,
 	}
 	go r.handleWatchEvents()
 	return r
@@ -209,9 +214,13 @@ func (r *TupleGenerationJobReconciler) Reconcile(ctx context.Context, req ctrl.R
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("invalid job id encountered '%v': %w", job.Spec.ID, err)
 		}
-		err = r.CastorClient.ActivateTupleChunk(ctx, tupleChunkID)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("tuple chunk activation failed for job %v: %w", job.Name, err)
+		numChunks := NumberOfChunks(job.Spec.Count, r.MaxUploadTuples)
+		for piece := 0; piece < numChunks; piece++ {
+			chunkID := DeriveChunkID(tupleChunkID, piece, numChunks)
+			err = r.CastorClient.ActivateTupleChunk(ctx, chunkID)
+			if err != nil {
+				return ctrl.Result{}, fmt.Errorf("tuple chunk activation failed for job %v piece %d: %w", job.Name, piece, err)
+			}
 		}
 		logger.Info("Job done", "Job", job)
 	}

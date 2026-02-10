@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022-2024 - for information on the respective copyright owner
+Copyright (c) 2022-2026 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -45,6 +45,10 @@ type TupleGenerationTaskReconciler struct {
 	Scheme           *runtime.Scheme
 	EtcdClient       *clientv3.Client
 	ProvisionerImage string
+	// MaxUploadTuples is the maximum number of tuples per single Castor upload. When a job produces
+	// more tuples than this limit the provisioner splits the tuple file into multiple pieces and
+	// uploads each piece with a deterministically derived chunk ID.
+	MaxUploadTuples int
 }
 
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks,verbs=get;list;watch;create;update;patch;delete
@@ -445,6 +449,14 @@ func (r *TupleGenerationTaskReconciler) createProvisionerPod(ctx context.Context
 					{
 						Name:  "KII_TUPLE_FILE",
 						Value: "/kii/tuples",
+					},
+					{
+						Name:  "KII_TUPLES_PER_JOB",
+						Value: fmt.Sprint(job.Spec.Count),
+					},
+					{
+						Name:  "KII_MAX_UPLOAD_TUPLES",
+						Value: fmt.Sprint(r.MaxUploadTuples),
 					},
 				},
 				VolumeMounts: []v1.VolumeMount{
