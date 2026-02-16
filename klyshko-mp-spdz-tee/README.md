@@ -98,8 +98,10 @@ The same enclave-key.pem must be present in both the VCPs, else the remote attes
 
 For more information refer the [Gramine Docs](https://gramine.readthedocs.io/en/stable/python/writing-sgx-sign-plugins.html)
 
+#### RA-TLS and KII environment variables
 
-> **Note**: In kii-run.sh, the flags RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE and RA_TLS_ALLOW_OUTDATED_TCB_INSECURE have been disabled by default.
+- **RA-TLS**: `RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE` (default `0`), `RA_TLS_ALLOW_OUTDATED_TCB_INSECURE` (default `0`), `RA_TLS_ALLOW_HW_CONFIG_NEEDED` (default `1`), `RA_TLS_ALLOW_SW_HARDENING_NEEDED` (default `1`). Only change the first two for debug or relaxed TCB policies (insecure).
+- **MRSIGNER**: `KII_MRSIGNER` defaults to signer value from sigstruct. export KII_MRSIGNER=0 to disable MRSIGNER verification.
 
 ## Step 3: Bringing Up Carbyne Stack
 

@@ -34,7 +34,7 @@ fs.mounts = [
 sys.enable_extra_runtime_domain_names_conf = true
 
 
-sgx.debug = true
+sgx.debug = false
 sgx.edmm_enable = {{ 'true' if env.get('EDMM', '0') == '1' else 'false' }}
 sgx.enclave_size = "512M"
 sgx.insecure__allow_memfaults_without_exinfo = false

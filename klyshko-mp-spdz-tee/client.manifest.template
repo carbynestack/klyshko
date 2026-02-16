@@ -37,7 +37,7 @@ fs.mounts = [
 
 sys.enable_extra_runtime_domain_names_conf = true
 sgx.remote_attestation = "dcap"
-sgx.debug = true
+sgx.debug = false
 sgx.edmm_enable = {{ 'true' if env.get('EDMM', '0') == '1' else 'false' }}
 sgx.enclave_size = "512M"
 sgx.max_threads = {{ '1' if env.get('EDMM', '0') == '1' else '4' }}

@@ -49,6 +49,9 @@ export RA_TLS_ALLOW_OUTDATED_TCB_INSECURE=${RA_TLS_ALLOW_OUTDATED_TCB_INSECURE:-
 export RA_TLS_ALLOW_HW_CONFIG_NEEDED=${RA_TLS_ALLOW_HW_CONFIG_NEEDED:-1}
 export RA_TLS_ALLOW_SW_HARDENING_NEEDED=${RA_TLS_ALLOW_SW_HARDENING_NEEDED:-1}
 
+# MRSIGNER for KII verification: default from server.sig; set to 0 to ignore
+export KII_MRSIGNER="${KII_MRSIGNER:-$mr_signer}"
+
 box_out() {
     local text="PLAYER $KII_PLAYER_NUMBER $KII_PLAYER_NAME $1" # Text to display inside the box
     local box_color="\e[43m" # Yellow background
@@ -66,15 +69,13 @@ box_out() {
 
 box_out "[0] Starting execution for player $KII_PLAYER_NUMBER $KII_PLAYER_NAME"
 
-
 echo "Starting player $KII_PLAYER_NUMBER $KII_PLAYER_NAME with enclave mr_enclave: $mr_enclave and mr_signer: $mr_signer" > "player_${KII_PLAYER_NUMBER}.log"
 
 box_out "[1] Spawning TEE.."
 
 gramine-sgx ./server "$mr_enclave" "$mr_signer" 0 0    &
 server_pid=$!
-./KII "$mr_enclave" "$mr_signer" 0 0 "$KII_PLAYER_NUMBER"  &
-
+./KII "$mr_enclave" "$KII_MRSIGNER" 0 0 "$KII_PLAYER_NUMBER"  &
 
 wait $server_pid
 box_out "[8] Copied Correlated Randomness to /kii/tuples.."

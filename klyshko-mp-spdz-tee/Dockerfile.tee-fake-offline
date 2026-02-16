@@ -14,11 +14,7 @@ ARG ARTIFACT_NAME="spdz"
 ARG ARTIFACT_TAG="5350e66"
 ARG DESCRIPTION="Carbyne Stack SPDZ TEE Base Image"
 ARG RELEASE_PAGE="https://github.com/carbynestack/base-images/releases"
-ARG PRIME="198766463529478683931867765928436695041"
-ARG MAC_KEY_P_P0="-88222337191559387830816715872691188861"
-ARG MAC_KEY_P_P1="1113507028231509545156335486838233835"
-ARG MAC_KEY_2_P0="0xb660b323e6"
-ARG MAC_KEY_2_P1="0x4ec9a0343c"
+
 
 ENV GROUP_ID=1000 \
     GROUP_NAME="cs" \
@@ -64,14 +60,6 @@ RUN mv local/lib/* /usr/local/lib/
 RUN make -j online
 ENV LD_LIBRARY_PATH="/usr/local/lib"
 
-# Generate tuples
-RUN mkdir -p Player-Data/2-p-128 Player-Data/2-2-40 && \
-  echo "2 ${MAC_KEY_P_P0}" >> Player-Data/2-p-128/Player-MAC-Keys-p-P0 && \
-  echo "2 ${MAC_KEY_P_P1}" >> Player-Data/2-p-128/Player-MAC-Keys-p-P1 && \
-  echo "2 ${MAC_KEY_2_P0}" >> Player-Data/2-2-40/Player-MAC-Keys-2-P0 && \
-  echo "2 ${MAC_KEY_2_P1}" >> Player-Data/2-2-40/Player-MAC-Keys-2-P1 && \
-  ./Fake-Offline.x --prime ${PRIME} 2
-
 RUN apt-get remove automake build-essential git libboost-dev libboost-thread-dev libssl-dev libtool m4 texinfo yasm unzip -y --purge \
   && DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y \
   && apt-get clean \
@@ -100,16 +88,20 @@ RUN groupadd -g ${GROUP_ID} ${GROUP_NAME} \
 
 RUN chown -R ${USER_ID}:${GROUP_ID} ./
 
-
-# Remove the Player-Data directory if it exists, recreate it, and set up subdirectories
-RUN rm -rf Player-Data && \
-    mkdir -p Player-Data/2-2-40 && \
+RUN mkdir -p Player-Data/2-2-40 && \
     mkdir -p Player-Data/2-p-128
-# Copy libSPDZ.so to /usr/local/lib
+
 RUN cp libSPDZ.so /usr/local/lib
 RUN apt-get update  &&  apt-get install -y protobuf-c-compiler libprotobuf-c-dev protobuf-compiler
-COPY enclave-key.pem /root/.config/gramine/enclave-key.pem
+
 COPY . .
+#Check if enclave key is set and is not empty
+RUN set -e \
+    && test -f enclave-key.pem || { echo "Error: Enclave signing key (enclave-key.pem) not found. Please add the enclave signing key to the build context." >&2; exit 1; } \
+    && test -s enclave-key.pem || { echo "Error: Enclave signing key (enclave-key.pem) is empty. Please add a valid enclave signing key." >&2; exit 1; } \
+    && mkdir -p /root/.config/gramine \
+    && cp enclave-key.pem /root/.config/gramine/enclave-key.pem
+
 RUN chmod +x kii-run.sh
 
 # Create placeholder MAC key share files for Gramine manifest build.
