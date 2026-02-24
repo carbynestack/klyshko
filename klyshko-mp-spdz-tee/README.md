@@ -93,10 +93,11 @@ To generate a new key, use open ssl.
 ```
 openssl genrsa -out enclave-key.pem 3072
 ```
-
-The same enclave-key.pem must be present in both the VCPs, else the remote attestation will fail.
-
 For more information refer the [Gramine Docs](https://gramine.readthedocs.io/en/stable/python/writing-sgx-sign-plugins.html)
+
+> **Important:**\
+> The repository contains an empty placeholder `enclave-key.pem`.
+> Docker builds will fail until you provide a valid key using the command above.
 
 #### RA-TLS and KII environment variables
 
