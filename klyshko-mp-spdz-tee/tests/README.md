@@ -1,12 +1,15 @@
 # Unit Tests
 
-This directory contains unit tests for the `klyshko-mp-spdz-tee` package using the cmocka testing framework.
+This directory contains unit tests for the `klyshko-mp-spdz-tee` package using
+the cmocka testing framework.
 
 ## Test Files
 
 - **CRG_test.c** - Tests for `CRG.c` (tuple types, file I/O, MAC key shares)
-- **server_test.c** - Tests for `server.c` (player verification, hex parsing, file operations)
-- **client_test.c** - Tests for `client.c` (hex arithmetic, parsing, file operations)
+- **server_test.c** - Tests for `server.c` (player verification, hex parsing,
+  file operations)
+- **client_test.c** - Tests for `client.c` (hex arithmetic, parsing, file
+  operations)
 
 ## Prerequisites
 
@@ -30,7 +33,8 @@ From the `tests` directory:
 ```bash
 cd tests
 
-# Build CRG test executable (uses actual CRG.c functions with stubs for TEE dependencies)
+# Build CRG test executable (uses actual CRG.c functions with stubs for TEE
+# dependencies)
 make CRG_test
 
 # Run CRG tests
@@ -53,23 +57,29 @@ make clean
 
 ## CRG.c Testing Setup
 
-The CRG test setup uses **stubbing** to test actual `CRG.c` functions without requiring SGX hardware:
+The CRG test setup uses **stubbing** to test actual `CRG.c` functions without
+requiring SGX hardware:
 
-- **`vars_stub.h`** - Stub header that replaces `vars.h` without mbedtls/TEE dependencies
-- **`stubs.c`** - Stub implementations of TEE functions (`local_attestation`, `ssl_*_setup_and_handshake`, etc.)
+- **`vars_stub.h`** - Stub header that replaces `vars.h` without mbedtls/TEE
+  dependencies
+- **`stubs.c`** - Stub implementations of TEE functions (`local_attestation`,
+  `ssl_*_setup_and_handshake`, etc.)
 - **`pkg/vars.h`** - Wrapper that redirects to `vars_stub.h` for testing
 
-This allows testing the actual `CRG.c` code (not reimplementations) and generating real coverage reports.
+This allows testing the actual `CRG.c` code (not reimplementations) and
+generating real coverage reports.
 
 
 ## Test Coverage
 
 ### CRG.c Tests
 1. **`getTupleType()`** - Tests all valid tuple types and invalid inputs
-2. **`get_random_hex()`** - Tests random hex string generation with various lengths
+2. **`get_random_hex()`** - Tests random hex string generation with various
+   lengths
 3. **`writeFile()`** - Tests file writing functionality
 4. **`read_file()`** - Tests file reading functionality
-5. **`create_mac_key_shares()`** - Tests MAC key share file creation for multiple players
+5. **`create_mac_key_shares()`** - Tests MAC key share file creation for
+   multiple players
 
 ### server.c Tests
 1. **`verify_player_details()`** - Tests player and job ID verification logic

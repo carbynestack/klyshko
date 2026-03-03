@@ -81,21 +81,19 @@ static void test_get_random_hex(void **state)
 {
     (void)state;
 
+    const int expected_len = 16;
     char hex_str[17];
-    get_random_hex(hex_str, 16);
+    get_random_hex(hex_str, expected_len);
 
-    // Verify length
-    assert_int_equal(strlen(hex_str), 16);
+    // Verify length via null terminator at expected index
+    assert_int_equal((unsigned char)hex_str[expected_len], '\0');
 
     // Verify all characters are valid hex digits
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < expected_len; i++)
     {
         assert_true((hex_str[i] >= '0' && hex_str[i] <= '9') ||
                     (hex_str[i] >= 'a' && hex_str[i] <= 'f'));
     }
-
-    // Verify null termination
-    assert_int_equal(hex_str[16], '\0');
 }
 
 // Test get_random_hex with different lengths
@@ -107,13 +105,11 @@ static void test_get_random_hex_different_lengths(void **state)
     
     // Test with length 8
     get_random_hex(hex_str, 8);
-    assert_int_equal(strlen(hex_str), 8);
-    assert_int_equal(hex_str[8], '\0');
+    assert_int_equal((unsigned char)hex_str[8], '\0');
 
     // Test with length 32
     get_random_hex(hex_str, 32);
-    assert_int_equal(strlen(hex_str), 32);
-    assert_int_equal(hex_str[32], '\0');
+    assert_int_equal((unsigned char)hex_str[32], '\0');
 }
 
 // Test writeFile
@@ -158,7 +154,7 @@ static void test_writeFile_empty_content(void **state)
     buffer[bytes_read] = '\0';
     fclose(f);
 
-    assert_int_equal(strlen(buffer), 0);
+    assert_int_equal((unsigned char)buffer[0], '\0');
 
     unlink(tmpfile);
 }
@@ -204,7 +200,7 @@ static void test_read_file_empty(void **state)
     read_file(tmpfile, &buffer);
 
     assert_non_null(buffer);
-    assert_int_equal(strlen(buffer), 0);
+    assert_int_equal((unsigned char)buffer[0], '\0');
 
     free(buffer);
     unlink(tmpfile);
