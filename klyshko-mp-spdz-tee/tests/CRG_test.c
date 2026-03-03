@@ -222,6 +222,11 @@ static void test_create_mac_key_shares(void **state)
 
     chdir(test_dir_actual);
 
+    // create_mac_key_shares writes under Player-Data/<pc>-<field>-<bits>; create dirs first
+    mkdir("Player-Data", 0755);
+    mkdir("Player-Data/2-p-128", 0755);
+    mkdir("Player-Data/2-2-40", 0755);
+
     // Allocate MAC keys
     int player_count = 2;
     char **keys_p = (char **)malloc(player_count * sizeof(char *));
@@ -299,6 +304,10 @@ static void test_create_mac_key_shares_three_players(void **state)
     assert_non_null(test_dir_actual);
 
     chdir(test_dir_actual);
+
+    mkdir("Player-Data", 0755);
+    mkdir("Player-Data/3-p-128", 0755);
+    mkdir("Player-Data/3-2-40", 0755);
 
     int player_count = 3;
     char **keys_p = (char **)malloc(player_count * sizeof(char *));

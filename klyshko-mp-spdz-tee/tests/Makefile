@@ -1,5 +1,9 @@
 COV_FLAGS = -fprofile-arcs -ftest-coverage -O0
-BASE_CFLAGS = -fPIE -I. -I../pkg $(shell pkg-config --cflags protobuf-c 2>/dev/null || echo "")
+BASE_CFLAGS = -fPIE -I. -I../pkg $(shell pkg-config --cflags protobuf-c 2>/dev/null || pkg-config --cflags libprotobuf-c 2>/dev/null || echo "")
+
+# Link protobuf-c when PROTOBUF_OBJS is used (CI has libprotobuf-c; pkg-config name is libprotobuf-c on Debian/Ubuntu)
+PROTOBUF_LIBS := $(shell pkg-config --libs libprotobuf-c 2>/dev/null || pkg-config --libs protobuf-c 2>/dev/null)
+PROTOBUF_LIBS ?= -lprotobuf-c
 
 # CRG.c source and stub files
 # Note: secretsharing.pb-c.c is only needed if CRG.c uses protobuf functions
@@ -34,11 +38,11 @@ CRG_test.c: ../pkg/CRG.c
 
 CRG_test: CRG_test.c $(CRG_OBJS) $(PROTOBUF_OBJS) $(STUB_OBJS)
 	$(CC) $(BASE_CFLAGS) $(COV_FLAGS) \
-	      -o $@ CRG_test.c $(CRG_OBJS) $(PROTOBUF_OBJS) $(STUB_OBJS) -lcmocka --coverage $(shell pkg-config --libs protobuf-c 2>/dev/null || echo "")
+	      -o $@ CRG_test.c $(CRG_OBJS) $(PROTOBUF_OBJS) $(STUB_OBJS) -lcmocka --coverage $(PROTOBUF_LIBS)
 
 .PHONY: test
 test: CRG_test
-	./CRG_test || true
+	./CRG_test
 
 .PHONY: coverage-text
 coverage-text: CRG_test
