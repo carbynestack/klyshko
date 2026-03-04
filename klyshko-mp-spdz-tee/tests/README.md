@@ -69,10 +69,10 @@ requiring SGX hardware:
 This allows testing the actual `CRG.c` code (not reimplementations) and
 generating real coverage reports.
 
-
 ## Test Coverage
 
 ### CRG.c Tests
+
 1. **`getTupleType()`** - Tests all valid tuple types and invalid inputs
 2. **`get_random_hex()`** - Tests random hex string generation with various
    lengths
@@ -82,6 +82,7 @@ generating real coverage reports.
    multiple players
 
 ### server.c Tests
+
 1. **`verify_player_details()`** - Tests player and job ID verification logic
 2. **`addHex2()`** - Tests hexadecimal addition with overflow handling
 3. **`parse_hex()`** - Tests hex string parsing with various inputs
@@ -89,9 +90,8 @@ generating real coverage reports.
 5. **`box_out()`** - Tests formatted output function
 
 ### client.c Tests
+
 1. **`addHex()`** - Tests hexadecimal addition operations
 2. **`parse_hex()`** - Tests hex string parsing
 3. **`file_read()`** - Tests file reading operations
-
-
 

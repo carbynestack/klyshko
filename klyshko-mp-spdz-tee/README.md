@@ -58,6 +58,7 @@ commands listed below are for VCP1. These commands are to be executed on the
 Azure Admin Console.
 
 #### VCP-1 Setup
+
 ```bash
 export azResourceGroup=YOUR_RESOURCE_GROUP
 export azClusterName=YOUR_CLUSTER_NAME
@@ -214,6 +215,7 @@ kubectl patch deployment klyshko-controller-manager -n default --type='json' \
 ### SGX Pods Not Running
 
 If SGX plugin pods are not running, check:
+
 1. Node selector labels match the actual node instance type (Refer below for
    fix)
 2. Custom daemonsets are deployed correctly
@@ -257,6 +259,7 @@ name.
 ### etcd Connection Issues
 
 If etcd instances cannot connect:
+
 1. Verify `KLYSHKO_ETCD_ENDPOINT` is set correctly with IP and port
 2. Check firewall rules allow communication between clusters
 3. Ensure both clusters can reach each other's etcd endpoints
@@ -264,6 +267,7 @@ If etcd instances cannot connect:
 ### Image Pull Errors
 
 If images fail to pull:
+
 1. Verify image registry credentials are configured
 2. Check that custom provisioner registry fix is applied
 3. Ensure all required environment variables are exported
