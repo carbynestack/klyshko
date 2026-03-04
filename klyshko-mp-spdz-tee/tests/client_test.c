@@ -19,7 +19,11 @@
 // Include parse_hex and file_read implementations from client.c
 static int parse_hex(const char *hex, void *buffer, size_t buffer_size)
 {
-    if (strlen(hex) != buffer_size * 2)
+    size_t expected_len = buffer_size * 2;
+    size_t len = 0;
+    while (len <= expected_len && hex[len] != '\0')
+        len++;
+    if (len != expected_len)
         return -1;
 
     for (size_t i = 0; i < buffer_size; i++)
@@ -209,7 +213,7 @@ static void test_file_read_valid(void **state)
     (void)state;
 
     const char *tmpfile = "/tmp/client_test_file.txt";
-    const char *test_content = "test content for file_read";
+    static const char test_content[] = "test content for file_read";
 
     // Create test file
     FILE *f = fopen(tmpfile, "w");
@@ -220,7 +224,7 @@ static void test_file_read_valid(void **state)
     char buffer[256] = {0};
     ssize_t bytes = file_read(tmpfile, buffer, sizeof(buffer) - 1);
 
-    assert_int_equal(bytes, strlen(test_content));
+    assert_int_equal(bytes, (ssize_t)(sizeof(test_content) - 1));
     assert_string_equal(buffer, test_content);
 
     unlink(tmpfile);

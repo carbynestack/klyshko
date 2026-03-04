@@ -1,0 +1,93 @@
+#
+# Copyright (c) 2023 - for information on the respective copyright owner
+# see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+name: Build and test MP-SPDZ TEE
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'ci-workflow-check'
+  pull_request:
+    branches:
+      - 'ci-workflow-check'
+env:
+  WORKING_DIRECTORY: klyshko-mp-spdz-tee
+jobs:
+  changes:
+    runs-on: ubuntu-22.04
+    permissions:
+      pull-requests: read
+    outputs:
+      mp-spdz-tee: ${{ steps.filter.outputs.mp-spdz-tee }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Check whether MP-SPDZ TEE codebase is affected
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            mp-spdz-tee:
+              - '${{ env.WORKING_DIRECTORY }}/**'
+
+  mp-spdz-tee-test:
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: ${{ needs.changes.outputs.mp-spdz-tee == 'true' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcmocka-dev libprotobuf-c-dev pkg-config gcc lcov
+      - name: Run unit tests
+        working-directory: ${{ env.WORKING_DIRECTORY }}/tests
+        run: make test
+      - name: Generate coverage report
+        working-directory: ${{ env.WORKING_DIRECTORY }}/tests
+        run: make coverage-html
+      - name: Publishing Coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ${{ env.WORKING_DIRECTORY }}/tests/coverage/coverage.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          name: codecov-mp-spdz-tee
+
+  mp-spdz-tee-build:
+    runs-on: ubuntu-22.04
+    needs: changes
+    if: ${{ needs.changes.outputs.mp-spdz-tee == 'true' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Set up Docker buildx
+        uses: docker/setup-buildx-action@v2
+      - name: Generate CI enclave signing key
+        working-directory: ${{ env.WORKING_DIRECTORY }}
+        run: openssl genrsa -3 -out enclave-key.pem 3072
+      - name: Build Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: ${{ env.WORKING_DIRECTORY }}
+          file: ${{ env.WORKING_DIRECTORY }}/Dockerfile.tee-fake-offline
+          push: false
+          tags: klyshko-mp-spdz-tee:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Required so branch protection can require this check even when test/build are skipped
+  mp-spdz-tee-test-status:
+    runs-on: ubuntu-22.04
+    needs: [mp-spdz-tee-test, mp-spdz-tee-build]
+    if: '!cancelled()'
+    steps:
+      - name: Tests and build successful
+        if: ${{ !(contains(needs['mp-spdz-tee-test'].result, 'failure') || contains(needs['mp-spdz-tee-build'].result, 'failure')) }}
+        run: exit 0
+      - name: Tests or build failed
+        if: ${{ contains(needs['mp-spdz-tee-test'].result, 'failure') || contains(needs['mp-spdz-tee-build'].result, 'failure') }}
+        run: exit 1
