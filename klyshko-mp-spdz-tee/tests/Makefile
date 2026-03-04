@@ -83,11 +83,13 @@ coverage-text: CRG_test
 coverage-html: CRG_test
 	@echo "Running tests to generate coverage data..."
 	-./CRG_test || true
-	@mkdir -p coverage/html
+	@mkdir -p coverage coverage/html
 	@if [ -f ../pkg/CRG.gcda ]; then \
-		lcov --capture --directory ../pkg --output-file coverage/coverage.info --no-external 2>&1 | grep -v "warning:" || true; \
+		cp ../pkg/CRG.c CRG_temp.c && \
+		lcov --capture --directory ../pkg --output-file coverage/coverage.info 2>&1 | grep -v "warning:" || true; \
 		lcov --remove coverage/coverage.info '/usr/*' --output-file coverage/coverage.info 2>&1 | grep -v "warning:" || true; \
 		genhtml coverage/coverage.info --output-directory coverage/html 2>&1 | tail -5; \
+		rm -f CRG_temp.c; \
 		echo "\nCoverage report: coverage/html/index.html"; \
 	else \
 		echo "Error: Coverage data file (CRG.gcda) not found. Run tests first."; \
@@ -95,7 +97,7 @@ coverage-html: CRG_test
 
 .PHONY: clean
 clean:
-	$(RM) $(CRG_OBJS) $(STUB_OBJS) CRG_test
+	$(RM) $(CRG_OBJS) $(STUB_OBJS) CRG_test CRG_temp.c
 	$(RM) -r coverage
 	$(RM) ../pkg/*.gcda ../pkg/*.gcno ../pkg/*.gcov
 	$(RM) *.gcda *.gcno *.gcov

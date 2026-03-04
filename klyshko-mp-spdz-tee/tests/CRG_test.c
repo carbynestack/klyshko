@@ -13,7 +13,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <errno.h>
 #include <sys/random.h>
 
@@ -110,6 +112,16 @@ static void test_get_random_hex_different_lengths(void **state)
     // Test with length 32
     get_random_hex(hex_str, 32);
     assert_int_equal((unsigned char)hex_str[32], '\0');
+}
+
+// Test get_random_hex with length 0 (edge case: loop runs zero times, only null terminator)
+static void test_get_random_hex_length_zero(void **state)
+{
+    (void)state;
+
+    char hex_str[1];
+    get_random_hex(hex_str, 0);
+    assert_int_equal((unsigned char)hex_str[0], '\0');
 }
 
 // Test writeFile
@@ -351,6 +363,128 @@ static void test_create_mac_key_shares_three_players(void **state)
     system("rm -rf /tmp/crg_test_player_data_3_*");
 }
 
+// Test create_mac_key_shares with 1 player
+static void test_create_mac_key_shares_one_player(void **state)
+{
+    (void)state;
+
+    char original_cwd[1024];
+    getcwd(original_cwd, sizeof(original_cwd));
+
+    char test_dir[] = "/tmp/crg_test_player_data_1_XXXXXX";
+    char *test_dir_actual = mkdtemp(test_dir);
+    assert_non_null(test_dir_actual);
+
+    chdir(test_dir_actual);
+
+    mkdir("Player-Data", 0755);
+    mkdir("Player-Data/1-p-128", 0755);
+    mkdir("Player-Data/1-2-40", 0755);
+
+    int player_count = 1;
+    char **keys_p = (char **)malloc(player_count * sizeof(char *));
+    char **keys_2 = (char **)malloc(player_count * sizeof(char *));
+    keys_p[0] = (char *)malloc(KEY_LENGTH * sizeof(char));
+    keys_2[0] = (char *)malloc(KEY_LENGTH * sizeof(char));
+    snprintf(keys_p[0], KEY_LENGTH, "key_p_0");
+    snprintf(keys_2[0], KEY_LENGTH, "key_2_0");
+
+    create_mac_key_shares(player_count, 0, keys_p, keys_2);
+
+    struct stat st;
+    assert_int_equal(stat("Player-Data/1-p-128/Player-MAC-Keys-p-P0", &st), 0);
+    assert_int_equal(stat("Player-Data/1-2-40/Player-MAC-Keys-2-P0", &st), 0);
+
+    free(keys_p[0]);
+    free(keys_2[0]);
+    free(keys_p);
+    free(keys_2);
+    chdir(original_cwd);
+    system("rm -rf /tmp/crg_test_player_data_1_*");
+}
+
+// Test read_file exits with failure when ftell fails (e.g. FIFO; run in child)
+static void test_read_file_ftell_fails(void **state)
+{
+    (void)state;
+
+    char fifo_path[] = "/tmp/crg_test_fifo_XXXXXX";
+    char *d = mkdtemp(fifo_path);
+    assert_non_null(d);
+    char path[256];
+    snprintf(path, sizeof(path), "%s/fifo", d);
+    assert_int_equal(mkfifo(path, 0600), 0);
+
+    int sync_pipe[2];
+    assert_int_equal(pipe(sync_pipe), 0);
+
+    pid_t pid = fork();
+    assert_true(pid >= 0);
+    if (pid == 0)
+    {
+        close(sync_pipe[0]);
+        write(sync_pipe[1], "x", 1);
+        close(sync_pipe[1]);
+        char *buf = NULL;
+        read_file(path, &buf);
+        exit(0);
+    }
+
+    close(sync_pipe[1]);
+    char c;
+    assert_int_equal(read(sync_pipe[0], &c, 1), 1);
+    close(sync_pipe[0]);
+
+    int fd = open(path, O_WRONLY);
+    assert_true(fd >= 0);
+    close(fd);
+
+    int status = 0;
+    assert_int_equal(waitpid(pid, &status, 0), pid);
+    assert_true(WIFEXITED(status));
+    assert_int_equal(WEXITSTATUS(status), EXIT_FAILURE);
+
+    unlink(path);
+    rmdir(d);
+}
+
+// Test read_file exits with failure on nonexistent file (run in child to avoid killing test process)
+static void test_read_file_nonexistent(void **state)
+{
+    (void)state;
+
+    pid_t pid = fork();
+    assert_true(pid >= 0);
+    if (pid == 0)
+    {
+        char *buf = NULL;
+        read_file("/nonexistent/crg_no_such_file_12345", &buf);
+        exit(0);
+    }
+    int status = 0;
+    assert_int_equal(waitpid(pid, &status, 0), pid);
+    assert_true(WIFEXITED(status));
+    assert_int_equal(WEXITSTATUS(status), EXIT_FAILURE);
+}
+
+// Test writeFile exits with failure on unwritable path (run in child)
+static void test_writeFile_unwritable(void **state)
+{
+    (void)state;
+
+    pid_t pid = fork();
+    assert_true(pid >= 0);
+    if (pid == 0)
+    {
+        writeFile("/proc/self/readonly_crg_test", "x");
+        exit(0);
+    }
+    int status = 0;
+    assert_int_equal(waitpid(pid, &status, 0), pid);
+    assert_true(WIFEXITED(status));
+    assert_int_equal(WEXITSTATUS(status), 1);
+}
+
 // ==================== Test Runner ====================
 
 int main(void)
@@ -363,6 +497,7 @@ int main(void)
         // get_random_hex tests
         cmocka_unit_test(test_get_random_hex),
         cmocka_unit_test(test_get_random_hex_different_lengths),
+        cmocka_unit_test(test_get_random_hex_length_zero),
 
         // writeFile tests
         cmocka_unit_test(test_writeFile),
@@ -375,6 +510,12 @@ int main(void)
         // create_mac_key_shares tests
         cmocka_unit_test(test_create_mac_key_shares),
         cmocka_unit_test(test_create_mac_key_shares_three_players),
+        cmocka_unit_test(test_create_mac_key_shares_one_player),
+
+        // Error-path tests (run in child so exit() doesn't kill test process)
+        cmocka_unit_test(test_read_file_ftell_fails),
+        cmocka_unit_test(test_read_file_nonexistent),
+        cmocka_unit_test(test_writeFile_unwritable),
     };
 
     return cmocka_run_group_tests(tests, NULL, NULL);
