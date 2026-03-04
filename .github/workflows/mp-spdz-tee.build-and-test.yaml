@@ -68,7 +68,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
       - name: Generate CI enclave signing key
         working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: openssl genrsa -out enclave-key.pem 3072
+        run: openssl genrsa -3 -out enclave-key.pem 3072
       - name: Build Docker image
         uses: docker/build-push-action@v3
         with:
