@@ -431,8 +431,10 @@ static void test_read_file_ftell_fails(void **state)
     }
 
     close(sync_pipe[1]);
-    char c;
-    assert_int_equal(read(sync_pipe[0], &c, 1), 1);
+    char read_buf[1];
+    ssize_t nread = read(sync_pipe[0], read_buf, sizeof(read_buf));
+    assert_int_equal(nread, 1);
+    (void)read_buf;
     close(sync_pipe[0]);
 
     int fd = open(path, O_WRONLY);
