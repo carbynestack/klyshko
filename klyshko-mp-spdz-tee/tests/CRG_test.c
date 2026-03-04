@@ -403,6 +403,18 @@ static void test_create_mac_key_shares_one_player(void **state)
     system("rm -rf /tmp/crg_test_player_data_1_*");
 }
 
+/* Bounded read from fd into buf; never reads more than buf_len bytes. Returns bytes read or -1. */
+static ssize_t read_bounded(int fd, void *buf, size_t buf_len)
+{
+    if (buf_len == 0)
+        return 0;
+    size_t to_read = buf_len;
+    ssize_t n = read(fd, buf, to_read);
+    if (n < 0 || (size_t)n > to_read)
+        return n < 0 ? n : -1;
+    return n;
+}
+
 // Test read_file exits with failure when ftell fails (e.g. FIFO; run in child)
 static void test_read_file_ftell_fails(void **state)
 {
@@ -432,9 +444,8 @@ static void test_read_file_ftell_fails(void **state)
 
     close(sync_pipe[1]);
     char read_buf[1];
-    ssize_t nread = read(sync_pipe[0], read_buf, sizeof(read_buf));
+    ssize_t nread = read_bounded(sync_pipe[0], read_buf, sizeof(read_buf));
     assert_int_equal(nread, 1);
-    (void)read_buf;
     close(sync_pipe[0]);
 
     int fd = open(path, O_WRONLY);
