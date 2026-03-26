@@ -155,7 +155,6 @@ For more information refer the
 > installation of `kind`. If the managed cluster also has it's own load
 > balancer, `MetalLB` installation can be skipped.
 
-
 ### Stack Setup
 
 Install the Stack by following the steps in
