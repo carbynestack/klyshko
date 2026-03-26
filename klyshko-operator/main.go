@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022 - for information on the respective copyright owner
+Copyright (c) 2022-2026 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -9,9 +9,10 @@ package main
 
 import (
 	"flag"
-	"github.com/carbynestack/klyshko/castor"
 	"os"
 	"time"
+
+	"github.com/carbynestack/klyshko/castor"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.

@@ -15,7 +15,7 @@ execution of the Correlated Randomness Generation (CRG) process within Intel SGX
 enclaves. The implementation uses Gramine (a library OS for SGX) to run the
 MP-SPDZ Fake-Offline application inside protected enclaves, providing
 confidentiality and integrity guarantees for the offline phase of Secure
-Multiparty Computation. 
+Multiparty Computation.
 
 The CRG application implements the Klyshko Integration Interface (KII) and
 performs local attestation between enclaves on the same node, followed by
@@ -57,7 +57,7 @@ The `sgx-quotehelper` plugin must be installed in both VCP 1 and VCP 2. The
 commands listed below are for VCP1. These commands are to be executed on the
 Azure Admin Console.
 
-#### VCP-1 Setup
+### VCP-1 Setup
 
 ```bash
 export azResourceGroup=YOUR_RESOURCE_GROUP
@@ -100,10 +100,10 @@ az aks addon update \
 **Reference**: [Azure Confidential Computing - Confidential Enclave Nodes AKS
 Get Started](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-enclave-nodes-aks-get-started)
 
-#### Validate SGX Plugin Installation
+### Validate SGX Plugin Installation
 
 Validate that the SGX plugin and SGX quote helper are running. If the below
-mentioned pods are running, then the plugins are enabled succesfully. 
+mentioned pods are running, then the plugins are enabled successfully.
 
 ```bash
 kubectl get pods -n kube-system | grep sgx
@@ -123,9 +123,11 @@ To enable attestation of Intel SGX TEE, the private key (enclave-key.pem) must
 be set, which will be used by Gramine to sign the hardware.
 
 To generate a new key, use open ssl.
-```
+
+```bash
 openssl genrsa -out enclave-key.pem 3072
 ```
+
 For more information refer the
 [Gramine Docs](https://gramine.readthedocs.io/en/stable/python/writing-sgx-sign-plugins.html)
 
@@ -133,7 +135,7 @@ For more information refer the
 > The repository contains an empty placeholder `enclave-key.pem`.
 > Docker builds will fail until you provide a valid key using the command above.
 
-#### RA-TLS and KII environment variables
+### RA-TLS and KII environment variables
 
 - **RA-TLS**: `RA_TLS_ALLOW_DEBUG_ENCLAVE_INSECURE` (default `0`),
   `RA_TLS_ALLOW_OUTDATED_TCB_INSECURE` (default `0`),
@@ -232,12 +234,12 @@ addon.
 
 1. Get manifests for sgx-quote-helper and sgx-plugin:
 
-```bash
-kubectl get daemonsets.apps -n kube-system sgx-quote-helper -o yaml \
-  > sgx-quote-helper-custom.yaml
-kubectl get daemonsets.apps -n kube-system sgx-plugin -o yaml \
-  > sgx-plugin-custom.yaml
-```
+   ```bash
+   kubectl get daemonsets.apps -n kube-system sgx-quote-helper -o yaml \
+     > sgx-quote-helper-custom.yaml
+   kubectl get daemonsets.apps -n kube-system sgx-plugin -o yaml \
+     > sgx-plugin-custom.yaml
+   ```
 
 2. Edit each manifest:
    - Change `node.kubernetes.io/instance-type` from `Standard_DC_*` to
@@ -248,10 +250,10 @@ kubectl get daemonsets.apps -n kube-system sgx-plugin -o yaml \
 
 3. Deploy the custom yamls:
 
-```bash
-kubectl apply -f sgx-quote-helper-custom.yaml
-kubectl apply -f sgx-plugin-custom.yaml
-```
+   ```bash
+   kubectl apply -f sgx-quote-helper-custom.yaml
+   kubectl apply -f sgx-plugin-custom.yaml
+   ```
 
 Repeat the same steps for VCP-2 with appropriate resource group and cluster
 name.

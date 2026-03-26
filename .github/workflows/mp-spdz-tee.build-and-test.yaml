@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023 - for information on the respective copyright owner
+# Copyright (c) 2026 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -9,10 +9,10 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 'ci-workflow-check'
+      - 'master'
   pull_request:
     branches:
-      - 'ci-workflow-check'
+      - 'master'
 env:
   WORKING_DIRECTORY: klyshko-mp-spdz-tee
 jobs:

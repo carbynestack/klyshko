@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022-2024 - for information on the respective copyright owner
+Copyright (c) 2022-2026 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -546,7 +546,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 		return found, fmt.Errorf("can't get the generator for task %v: %w", task.Name, err)
 	}
 	podSpecTemplate := generator.Spec.Template
-	
+
 	// Build tolerations - start with user-specified tolerations, conditionally add SGX toleration
 	tolerations := podSpecTemplate.Spec.Tolerations
 	if r.SgxEnabled {
@@ -559,7 +559,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 			},
 		)
 	}
-	
+
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      task.Name,
@@ -569,7 +569,7 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 			},
 		},
 		Spec: v1.PodSpec{
-			Affinity: podSpecTemplate.Spec.Affinity,
+			Affinity:    podSpecTemplate.Spec.Affinity,
 			Tolerations: tolerations,
 			Containers: []v1.Container{
 				{

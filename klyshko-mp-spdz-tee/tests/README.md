@@ -94,4 +94,3 @@ generating real coverage reports.
 1. **`addHex()`** - Tests hexadecimal addition operations
 2. **`parse_hex()`** - Tests hex string parsing
 3. **`file_read()`** - Tests file reading operations
-
