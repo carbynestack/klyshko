@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2023 - for information on the respective copyright owner
+Copyright (c) 2023-2026 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -46,8 +46,8 @@ type TupleGeneratorPodSpec struct {
 
 	// If specified, the pod's scheduling constraints
 	// +optional
-	Affinity *v1.Affinity `json:"affinity,omitempty"`
-
+	Affinity    *v1.Affinity    `json:"affinity,omitempty"`
+	Tolerations []v1.Toleration `json:"tolerations,omitempty"`
 	// The specification of the TupleGenerator container
 	Container TupleGeneratorContainer `json:"container"`
 }

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2022-2024 - for information on the respective copyright owner
+Copyright (c) 2022-2026 - for information on the respective copyright owner
 see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 
 SPDX-License-Identifier: Apache-2.0
@@ -45,6 +45,7 @@ type TupleGenerationTaskReconciler struct {
 	Scheme           *runtime.Scheme
 	EtcdClient       *clientv3.Client
 	ProvisionerImage string
+	SgxEnabled       bool
 }
 
 //+kubebuilder:rbac:groups=klyshko.carbnyestack.io,resources=tuplegenerationtasks,verbs=get;list;watch;create;update;patch;delete
@@ -545,6 +546,20 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 		return found, fmt.Errorf("can't get the generator for task %v: %w", task.Name, err)
 	}
 	podSpecTemplate := generator.Spec.Template
+
+	// Build tolerations - start with user-specified tolerations, conditionally add SGX toleration
+	tolerations := podSpecTemplate.Spec.Tolerations
+	if r.SgxEnabled {
+		tolerations = append(tolerations,
+			v1.Toleration{
+				Key:      "sgx",
+				Operator: v1.TolerationOpEqual,
+				Value:    "enabled",
+				Effect:   v1.TaintEffectNoSchedule,
+			},
+		)
+	}
+
 	pod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      task.Name,
@@ -554,13 +569,24 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 			},
 		},
 		Spec: v1.PodSpec{
-			Affinity: podSpecTemplate.Spec.Affinity,
+			Affinity:    podSpecTemplate.Spec.Affinity,
+			Tolerations: tolerations,
 			Containers: []v1.Container{
 				{
 					Name:            "generator",
 					Image:           podSpecTemplate.Spec.Container.Image,
 					ImagePullPolicy: podSpecTemplate.Spec.Container.ImagePullPolicy,
-					Resources:       podSpecTemplate.Spec.Container.Resources,
+					Resources: func() v1.ResourceRequirements {
+						if r.SgxEnabled {
+							return v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									"sgx.intel.com/enclave":   resource.MustParse("1"),
+									"sgx.intel.com/provision": resource.MustParse("1"),
+								},
+							}
+						}
+						return podSpecTemplate.Spec.Container.Resources
+					}(),
 					Ports: []v1.ContainerPort{
 						{
 							ContainerPort: InterCRGNetworkingPort,
@@ -599,68 +625,94 @@ func (r *TupleGenerationTaskReconciler) createGeneratorPod(ctx context.Context, 
 						},
 						endpointEnvVars...,
 					),
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:      "kii",
-							MountPath: "/kii",
-						},
-						{
-							Name:      "params",
-							ReadOnly:  true,
-							MountPath: "/etc/kii/params",
-						},
-						{
-							Name:      "secret-params",
-							ReadOnly:  true,
-							MountPath: "/etc/kii/secret-params",
-						},
-						{
-							Name:      "extra-params",
-							ReadOnly:  true,
-							MountPath: "/etc/kii/extra-params",
-						},
-					},
+					VolumeMounts: func() []v1.VolumeMount {
+						volumeMounts := []v1.VolumeMount{
+							{
+								Name:      "kii",
+								MountPath: "/kii",
+							},
+							{
+								Name:      "params",
+								ReadOnly:  true,
+								MountPath: "/etc/kii/params",
+							},
+							{
+								Name:      "secret-params",
+								ReadOnly:  true,
+								MountPath: "/etc/kii/secret-params",
+							},
+							{
+								Name:      "extra-params",
+								ReadOnly:  true,
+								MountPath: "/etc/kii/extra-params",
+							},
+						}
+						if r.SgxEnabled {
+							volumeMounts = append(volumeMounts,
+								v1.VolumeMount{
+									Name:      "var-run-aesmd",
+									MountPath: "/var/run/aesmd",
+								},
+							)
+						}
+						return volumeMounts
+					}(),
 				},
 			},
 			RestartPolicy: v1.RestartPolicyNever,
-			Volumes: []v1.Volume{
-				{
-					Name: "kii",
-					VolumeSource: v1.VolumeSource{
-						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: pvcName(key),
-						},
-					},
-				},
-				{
-					Name: "params",
-					VolumeSource: v1.VolumeSource{
-						ConfigMap: &v1.ConfigMapVolumeSource{
-							LocalObjectReference: v1.LocalObjectReference{
-								Name: "io.carbynestack.engine.params",
+			Volumes: func() []v1.Volume {
+				volumes := []v1.Volume{
+					{
+						Name: "kii",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: pvcName(key),
 							},
 						},
 					},
-				},
-				{
-					Name: "secret-params",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
-							SecretName: "io.carbynestack.engine.params.secret",
-						},
-					},
-				},
-				{
-					Name: "extra-params",
-					VolumeSource: v1.VolumeSource{
-						ConfigMap: &v1.ConfigMapVolumeSource{
-							LocalObjectReference: v1.LocalObjectReference{
-								Name: "io.carbynestack.engine.params.extra",
+					{
+						Name: "params",
+						VolumeSource: v1.VolumeSource{
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "io.carbynestack.engine.params",
+								},
 							},
 						},
 					},
-				},
-			},
+					{
+						Name: "secret-params",
+						VolumeSource: v1.VolumeSource{
+							Secret: &v1.SecretVolumeSource{
+								SecretName: "io.carbynestack.engine.params.secret",
+							},
+						},
+					},
+					{
+						Name: "extra-params",
+						VolumeSource: v1.VolumeSource{
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "io.carbynestack.engine.params.extra",
+								},
+							},
+						},
+					},
+				}
+				if r.SgxEnabled {
+					volumes = append(volumes,
+						v1.Volume{
+							Name: "var-run-aesmd",
+							VolumeSource: v1.VolumeSource{
+								HostPath: &v1.HostPathVolumeSource{
+									Path: "/var/run/aesmd",
+								},
+							},
+						},
+					)
+				}
+				return volumes
+			}(),
 		},
 	}
 	logger.V(logging.DEBUG).Info("Creating generator pod", "Pod", pod)
@@ -692,6 +744,9 @@ func (r *TupleGenerationTaskReconciler) getOrCreateService(ctx context.Context, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name.Name,
 			Namespace: name.Namespace,
+			Annotations: map[string]string{
+				"service.beta.kubernetes.io/port_5000_no_probe_rule": "true",
+			},
 		},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{

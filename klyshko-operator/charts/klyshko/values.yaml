@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2022-2023 - for information on the respective copyright owner
+# Copyright (c) 2022-2026 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -17,6 +17,10 @@ controller:
     pullPolicy: IfNotPresent
     tag: latest
   etcdEndpoint: 172.18.1.129:2379
+  # Enable SGX support for tuple generation. When enabled, injects SGX resources, tolerations, and volume mounts.
+  # Defaults to false to preserve compatibility with non-SGX clusters.
+  sgx:
+    enabled: false
 
 provisioner:
   image:

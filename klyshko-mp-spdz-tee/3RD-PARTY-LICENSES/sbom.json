@@ -1,0 +1,12 @@
+[
+  {"project":"https://github.com/data61/MP-SPDZ","license":"BSD-3-Clause"},
+  {"project":"https://github.com/wbhart/mpir","license":"LGPL-3.0-or-later"},
+  {"project":"https://github.com/boostorg/filesystem","license":"BSL-1.0"},
+  {"project":"https://github.com/boostorg/system","license":"BSL-1.0"},
+  {"project":"https://github.com/boostorg/thread","license":"BSL-1.0"},
+  {"project":"https://github.com/jedisct1/libsodium","license":"ISC"},
+  {"project":"https://github.com/openssl/openssl","license":"Apache-2.0"},
+  {"project":"https://github.com/gramineproject/gramine","license":"LGPL-3.0-or-later"},
+  {"project":"https://github.com/protobuf-c/protobuf-c","license":"BSD-3-Clause"},
+  {"project":"https://github.com/protocolbuffers/protobuf","license":"BSD-3-Clause"}
+]
