@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.4.0...operator-chart-v0.5.0) (2026-04-07)
+
+
+### Features
+
+* add SGX/Gramine TEE support for CRG ([#98](https://github.com/carbynestack/klyshko/issues/98)) ([12c1866](https://github.com/carbynestack/klyshko/commit/12c1866b0b935fa18bc2ed7d603a25bec798390e))
+
 ## [0.4.0](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.3.0...operator-chart-v0.4.0) (2023-09-04)
 
 
