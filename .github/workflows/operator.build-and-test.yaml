@@ -40,9 +40,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version-file: ${{ env.WORKING_DIRECTORY }}/go.mod
+          go-version: '1.22'
           cache-dependency-path: ${{ env.WORKING_DIRECTORY }}/go.sum
       - name: Build and Test
         working-directory: ${{ env.WORKING_DIRECTORY }}
