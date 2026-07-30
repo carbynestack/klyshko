@@ -16,3 +16,10 @@
 
 # Java
 **/target
+
+# MAC
+klyshko-mp-spdz-tee/etc/kii/secret-params/
+*.manifest.sgx
+*.manifest.sgx.*
+server.manifest
+server.sig
