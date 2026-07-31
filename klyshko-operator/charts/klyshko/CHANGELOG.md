@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.5.0...operator-chart-v0.5.1) (2026-07-31)
+
+
+### Bug Fixes
+
+* **operator-chart:** use quay.io mirror for kube-rbac-proxy (carbynestack[#123](https://github.com/carbynestack/klyshko/issues/123)) ([#104](https://github.com/carbynestack/klyshko/issues/104)) ([548da55](https://github.com/carbynestack/klyshko/commit/548da555998cd154869dc356adcbb94a1d579fdd))
+
 ## [0.5.0](https://github.com/carbynestack/klyshko/compare/operator-chart-v0.4.0...operator-chart-v0.5.0) (2026-04-07)
 
 
