@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/carbynestack/klyshko/compare/operator-v0.4.0...operator-v0.4.1) (2026-07-31)
+
+
+### Bug Fixes
+
+* **operator-chart:** use quay.io mirror for kube-rbac-proxy (carbynestack[#123](https://github.com/carbynestack/klyshko/issues/123)) ([#104](https://github.com/carbynestack/klyshko/issues/104)) ([548da55](https://github.com/carbynestack/klyshko/commit/548da555998cd154869dc356adcbb94a1d579fdd))
+* **operator:** bump stale envtest pins and bypass setup-envtest download in CI ([#105](https://github.com/carbynestack/klyshko/issues/105)) ([b984259](https://github.com/carbynestack/klyshko/commit/b9842594aa8120ee91a4b924e7acc6965b984b31))
+
 ## [0.4.0](https://github.com/carbynestack/klyshko/compare/operator-v0.3.1...operator-v0.4.0) (2026-03-26)
 
 
