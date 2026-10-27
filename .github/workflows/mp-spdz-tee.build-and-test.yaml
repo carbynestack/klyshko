@@ -66,19 +66,28 @@ jobs:
         uses: actions/checkout@v3
       - name: Set up Docker buildx
         uses: docker/setup-buildx-action@v2
-      - name: Generate CI enclave signing key
-        working-directory: ${{ env.WORKING_DIRECTORY }}
-        run: openssl genrsa -3 -out enclave-key.pem 3072
+      # Throwaway key: this image is never pushed, so its MR_SIGNER is irrelevant.
+      # The real author key is only available to the publish workflow.
+      - name: Generate throwaway CI enclave signing key
+        run: openssl genrsa -3 -out "$RUNNER_TEMP/enclave-key.pem" 3072
       - name: Build Docker image
         uses: docker/build-push-action@v3
         with:
           context: ${{ env.WORKING_DIRECTORY }}
           file: ${{ env.WORKING_DIRECTORY }}/Dockerfile.tee-fake-offline
           push: false
+          load: true
           tags: klyshko-mp-spdz-tee:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+          secret-files: |
+            enclave_key=${{ runner.temp }}/enclave-key.pem
+          cache-from: type=gha,scope=mp-spdz-tee-ci
+          cache-to: type=gha,mode=max,scope=mp-spdz-tee-ci
+      - name: Assert signing key is not contained in the image
+        run: |
+          if docker run --rm --entrypoint sh klyshko-mp-spdz-tee:test -c \
+               'test -s /root/.config/gramine/enclave-key.pem || test -s /mp-spdz/enclave-key.pem'; then
+            echo "::error::Enclave signing key found in image"; exit 1
+          fi
   # Required so branch protection can require this check even when test/build are skipped
   mp-spdz-tee-test-status:
     runs-on: ubuntu-22.04

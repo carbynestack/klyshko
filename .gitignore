@@ -23,3 +23,9 @@ klyshko-mp-spdz-tee/etc/kii/secret-params/
 *.manifest.sgx.*
 server.manifest
 server.sig
+
+# Enclave signing keys must never be committed
+klyshko-mp-spdz-tee/enclave-key.pem
+author-key*.pem
+*.enc.pem
+!klyshko-mp-spdz-tee/author-key.pub.pem

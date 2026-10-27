@@ -23,6 +23,11 @@
     "klyshko-provisioner": {
       "package-name": "provisioner",
       "release-type": "simple"
+    },
+    "klyshko-mp-spdz-tee": {
+      "package-name": "mp-spdz-tee",
+      "release-type": "simple",
+      "release-as": "0.1.0"
     }
   }
 }

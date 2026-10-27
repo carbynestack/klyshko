@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 #
 # Copyright (c) 2026 - for information on the respective copyright owner
 # see the NOTICE file and/or the repository https://github.com/carbynestack/klyshko.
@@ -5,7 +6,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 FROM gramineproject/gramine:1.7-jammy
-RUN apt update && apt install -y git make gcc  wget libsgx-dcap-ql libsgx-quote-ex libsgx-dcap-default-qpl pkg-config vim
+# Refresh CA certificates first: the base image's store does not trust the
+# certificate chain currently used by download.01.org (Intel SGX repository).
+RUN apt-get update; apt-get install -y --no-install-recommends ca-certificates \
+    && apt-get update \
+    && apt-get install -y git make gcc wget libsgx-dcap-ql libsgx-quote-ex libsgx-dcap-default-qpl pkg-config vim
 ENV SGX_AESM_ADDR=1
 COPY azure_sgx_qcnl.conf /etc/sgx_default_qcnl.conf
 
@@ -25,7 +30,7 @@ ENV GROUP_ID=1000 \
 LABEL maintainer="https://carbynestack.io"
 LABEL description="${DESCRIPTION}"
 LABEL 3rd-party-disclosure="${RELEASE_PAGE}/download/${VERSION}/${ARTIFACT_NAME}_${ARTIFACT_TAG}-3rd-party-disclosure.zip"
-LABEL org.opencontainers.image.source="https://github.com/carbynestack/base-images"
+LABEL org.opencontainers.image.source="https://github.com/carbynestack/klyshko"
 
 WORKDIR /
 
@@ -95,12 +100,6 @@ RUN cp libSPDZ.so /usr/local/lib
 RUN apt-get update  &&  apt-get install -y protobuf-c-compiler libprotobuf-c-dev protobuf-compiler
 
 COPY . .
-#Check if enclave key is set and is not empty
-RUN set -e \
-    && test -f enclave-key.pem || { echo "Error: Enclave signing key (enclave-key.pem) not found. Please add the enclave signing key to the build context." >&2; exit 1; } \
-    && test -s enclave-key.pem || { echo "Error: Enclave signing key (enclave-key.pem) is empty. Please add a valid enclave signing key." >&2; exit 1; } \
-    && mkdir -p /root/.config/gramine \
-    && cp enclave-key.pem /root/.config/gramine/enclave-key.pem
 
 RUN chmod +x kii-run.sh
 
@@ -109,7 +108,16 @@ RUN mkdir -p etc/kii/secret-params && \
     echo "0" > etc/kii/secret-params/mac_key_share_p && \
     echo "0" > etc/kii/secret-params/mac_key_share_2
 
-RUN make app RA_TYPE=dcap
+# Sign the enclave. The signing key is provided as a BuildKit secret, is mounted
+# only for the duration of this RUN, and is never written to an image layer.
+# Build with: docker build --secret id=enclave_key,src=<path-to-key> ...
+RUN --mount=type=secret,id=enclave_key,target=/root/.config/gramine/enclave-key.pem,required=true \
+    test -s /root/.config/gramine/enclave-key.pem \
+      || { echo "Error: enclave signing key secret 'enclave_key' is missing or empty." >&2; exit 1; } \
+    && make app RA_TYPE=dcap \
+    && gramine-sgx-sigstruct-view --verbose --output-format=json server.sig > /measurements.json
+
+
 RUN output=$(gramine-sgx-sigstruct-view server.sig)
 
 # Extract values and set as environment variables
